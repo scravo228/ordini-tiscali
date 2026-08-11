@@ -115,7 +115,8 @@ async function mostraMioAccount() {
 
         const risposta =
     await fetch(
-        `${API_URL}/admin/punti-vendita`
+        `${API_URL}/admin/punti-vendita`,
+    
     );
 
 
@@ -1453,7 +1454,7 @@ async function caricaPuntiVenditaAdmin() {
         const risposta =
             
             await fetch(
-                `${API_URL}/admin/punti-vendita`
+                `${API_URL}/admin/punti-vendita`,
             );
 
 
@@ -1603,7 +1604,7 @@ async function creaNuovoPuntoVendita() {
 
         const risposta =
             await fetch(
-                `${API_URL}/admin/crea-punto-vendita`
+                `${API_URL}/admin/crea-punto-vendita`,
                 {
 
                     method: "POST",
@@ -1762,7 +1763,7 @@ async function apriModificaPuntoVendita(id) {
 
     const risposta =
         await fetch(
-           `${API_URL}/admin/punti-vendita`
+           `${API_URL}/admin/punti-vendita`,
         );
 
     const dati =
