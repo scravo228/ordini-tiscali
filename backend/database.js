@@ -53,6 +53,57 @@ db.serialize(() => {
     `);
 
 });
+db.run(`
+    CREATE TABLE IF NOT EXISTS dettagli_ordine (
+        ...
+    )
+`);
+db.get(
+    `SELECT id FROM punti_vendita WHERE codice = ?`,
+    ["STAMPU01"],
+    (err, riga) => {
 
+        if (err) {
+            console.error("Errore controllo STAMPU01:", err);
+            return;
+        }
 
-module.exports = db;
+        if (!riga) {
+
+            db.run(
+                `
+                INSERT INTO punti_vendita
+                (nome, codice, password, attivo)
+                VALUES (?, ?, ?, 1)
+                `,
+                [
+                    "STAMPU",
+                    "STAMPU01",
+                    "1234"
+                ],
+                (err) => {
+
+                    if (err) {
+                        console.error(
+                            "Errore creazione STAMPU01:",
+                            err
+                        );
+                    } else {
+                        console.log(
+                            "Punto vendita STAMPU01 creato"
+                        );
+                    }
+
+                }
+            );
+
+        } else {
+
+            console.log(
+                "STAMPU01 già presente"
+            );
+
+        }
+
+    }
+);
