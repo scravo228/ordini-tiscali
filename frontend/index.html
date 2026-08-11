@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <title>Ordini Tiscali</title>
+
+    <link rel="stylesheet" href="style.css">
+
+</head>
+
+
+<body>
+
+
+<!-- LOGIN -->
+
+<div id="schermataLogin" class="container">
+
+    <h1>
+        📦 Ordini Tiscali
+    </h1>
+
+
+    <input
+        type="text"
+        id="codiceLogin"
+        placeholder="Codice punto vendita"
+    >
+
+
+    <input
+        type="password"
+        id="passwordLogin"
+        placeholder="Password"
+    >
+
+
+    <button onclick="effettuaLogin()">
+        🔑 Entra
+    </button>
+
+
+    <p id="erroreLogin"></p>
+
+
+</div>
+
+
+
+
+<!-- APP PRINCIPALE -->
+
+<div id="app" class="container" style="display:none;">
+
+
+    <div class="testata">
+
+        <h1>
+            📦 Ordine Tiscali
+        </h1>
+
+
+        <div class="info-ordine">
+
+
+            <div>
+
+                🏪 Punto vendita:
+
+                <strong id="puntoVendita">
+                    -
+                </strong>
+
+            </div>
+
+
+            <div>
+
+                📅 Data:
+
+                <strong id="dataOrdine">
+                    -
+                </strong>
+
+            </div>
+
+
+        </div>
+
+
+    </div>
+
+
+
+
+    <input
+        type="file"
+        id="fileExcel"
+        accept=".xlsx"
+    >
+
+
+    <button onclick="caricaExcel()">
+
+        🔄 Aggiorna lista Excel
+
+    </button>
+
+
+
+
+    <label class="filtro">
+
+
+        <input
+            type="checkbox"
+            id="soloOrdinati"
+            onchange="filtraProdotti()"
+        >
+
+
+        Mostra solo prodotti ordinati
+
+
+    </label>
+
+
+
+
+
+    <div id="listaProdotti"></div>
+
+
+
+
+    <div id="riepilogo" class="riepilogo">
+
+    </div>
+
+
+
+
+
+    <button
+        class="reset"
+        onclick="azzeraOrdine()"
+    >
+
+        🗑️ Azzera ordine
+
+    </button>
+
+
+
+
+    <button
+        class="pdf"
+        onclick="creaPDF()"
+    >
+
+        📄 Crea PDF
+
+    </button>
+
+
+
+
+
+    <button
+        class="invia"
+        onclick="inviaATiscali()"
+    >
+
+        🛒 Invia a Tiscali
+
+    </button>
+
+
+    <button
+    type="button"
+    onclick="mostraMioAccount()"
+>
+    👤 Il mio account
+</button>
+
+
+
+</div>
+
+
+
+
+<script src="app.js"></script>
+
+
+</body>
+
+</html>
