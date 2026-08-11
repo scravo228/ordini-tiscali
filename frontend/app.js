@@ -1,4 +1,3 @@
-
 let contenutoOrdine = "";
 let schermataOrdineSalvata = "";
 let prodotti = [];
@@ -15,7 +14,10 @@ let puntoVenditaId =
 // =====================================================
 // APERTURA ORDINE
 // =====================================================
-
+const API_URL =
+    window.location.hostname === "localhost"
+        ? "http://localhost:3000"
+        : "https://ordini-tiscali.onrender.com";
 async function apriOrdine() {
     if (!puntoVenditaId) {
 
@@ -30,7 +32,7 @@ async function apriOrdine() {
     try {
 
         const risposta = await fetch(
-            "https://ordini-tiscali.onrender.com/ordine/apri",
+    `${API_URL}/ordine/apri`,
             {
                 method: "POST",
 
@@ -111,9 +113,9 @@ async function mostraMioAccount() {
     try {
 
         const risposta =
-            await fetch(
-                `httpsordini-tiscali.onrender.com/admin/punti-vendita`
-            );
+    await fetch(
+        `${API_URL}/admin/punti-vendita`
+    );
 
 
         const dati =
@@ -254,9 +256,8 @@ async function caricaExcel() {
         );
 
 
-      const risposta =
-    await fetch(
-        "httpsordini-tiscali.onrender.com/upload-excel",
+      const risposta = await fetch(
+    `${API_URL}/upload-excel`,
         {
             method: "POST",
             body: formData
@@ -474,34 +475,24 @@ async function piu(index) {
     try {
 
         const risposta =
-            await fetch(
-                "httpsordini-tiscali.onrender.com/ordine/prodotto",
-                {
-                    method: "POST",
+    await fetch(
+        `${API_URL}/ordine/prodotto`,
+        {
+            method: "POST",
 
-                    headers: {
-                        "Content-Type":
-                            "application/json"
-                    },
+            headers: {
+                "Content-Type":
+                    "application/json"
+            },
 
-                    body: JSON.stringify({
-
-                        ordineId:
-                            ordineId,
-
-                        codice:
-                            prodotto.codice,
-
-                        descrizione:
-                            prodotto.descrizione,
-
-                        quantita:
-                            prodotto.quantita
-
-                    })
-                }
-            );
-
+            body: JSON.stringify({
+                ordineId: ordineId,
+                codice: prodotto.codice,
+                descrizione: prodotto.descrizione,
+                quantita: prodotto.quantita
+            })
+        }
+    );
 
         const dati =
             await risposta.json();
@@ -573,7 +564,7 @@ async function meno(index) {
 
             const risposta =
                 await fetch(
-                    "httpsordini-tiscali.onrender.com/ordine/prodotto/modifica",
+                    ${API_URL}/ordine/prodotto/modifica,
                     {
                         method: "POST",
 
@@ -646,7 +637,7 @@ async function meno(index) {
 
         const risposta =
             await fetch(
-                "httpsordini-tiscali.onrender.com/ordine/prodotto/elimina",
+                ${API_URL}/ordine/prodotto/elimina,
                 {
                     method: "POST",
 
@@ -749,7 +740,7 @@ async function azzeraOrdine() {
 
         const risposta =
             await fetch(
-                "httpsordini-tiscali.onrender.com/ordine/database/azzera",
+                ${API_URL}/ordine/database/azzera,
                 {
                     method: "POST",
 
@@ -950,7 +941,7 @@ async function creaPDF() {
 
         const risposta =
             await fetch(
-                "httpsordini-tiscali.onrender.com/crea-pdf",
+                `${API_URL}/crea-pdf`,
                 {
                     method: "POST",
 
@@ -1063,7 +1054,7 @@ async function inviaATiscali() {
         console.log("Invio ordine Tiscali:", ordineId);
 
         const risposta = await fetch(
-            "httpsordini-tiscali.onrender.com/ordine/invia-tiscali",
+            `${API_URL}/ordine/invia-tiscali`,
             {
                 method: "POST",
 
@@ -1221,64 +1212,7 @@ if (utenteSalvato) {
 
 };
 
-async function effettuaLogin() {
 
-    const codice =
-        document.getElementById(
-            "codiceLogin"
-        ).value;
-
-
-    const password =
-        document.getElementById(
-            "passwordLogin"
-        ).value;
-
-
-    const risposta =
-        await fetch(
-            "httpsordini-tiscali.onrender.com/login",
-            {
-                method: "POST",
-
-                headers: {
-                    "Content-Type":
-                    "application/json"
-                },
-
-                body: JSON.stringify({
-
-                    codice,
-                    password
-
-                })
-
-            }
-        );
-
-
-    const dati =
-        await risposta.json();
-
-
-    if (!dati.successo) {
-
-        document.getElementById(
-            "erroreLogin"
-        ).innerHTML =
-            "❌ Codice o password errati";
-
-        return;
-
-    }
-
-
-    alert(
-        "Accesso effettuato: " +
-        dati.nome
-    );
-
-}
 async function effettuaLogin() {
 
     const codice =
@@ -1296,7 +1230,7 @@ async function effettuaLogin() {
     try {
 
         const risposta = await fetch(
-            "https://ordini-tiscali.onrender.com/login",
+            ${API_URL}/login,
             {
                 method: "POST",
 
@@ -1517,7 +1451,7 @@ async function caricaPuntiVenditaAdmin() {
 
         const risposta =
             await fetch(
-                "httpsordini-tiscali.onrender.com/admin/punti-vendita"
+                ${API_URL}/admin/punti-vendita
             );
 
 
@@ -1667,7 +1601,7 @@ async function creaNuovoPuntoVendita() {
 
         const risposta =
             await fetch(
-                "httpsordini-tiscali.onrender.com/admin/crea-punto-vendita",
+                ${API_URL}/admin/crea-punto-vendita,
                 {
 
                     method: "POST",
@@ -1774,7 +1708,7 @@ async function disattivaPuntoVendita(id) {
 
         const risposta =
             await fetch(
-                "httpsordini-tiscali.onrender.com/admin/disattiva-punto-vendita",
+                ${API_URL}/admin/disattiva-punto-vendita,
                 {
 
                     method:"POST",
@@ -1826,7 +1760,7 @@ async function apriModificaPuntoVendita(id) {
 
     const risposta =
         await fetch(
-            "httpsordini-tiscali.onrender.com/admin/punti-vendita"
+            ${API_URL}/admin/punti-vendita
         );
 
     const dati =
@@ -1933,7 +1867,7 @@ async function salvaModificaPuntoVendita(id) {
 
         const risposta =
             await fetch(
-                "httpsordini-tiscali.onrender.com/admin/modifica-punto-vendita",
+                ${API_URL}/admin/modifica-punto-vendita,
                 {
 
                     method:"POST",
@@ -2083,7 +2017,7 @@ async function riattivaPuntoVendita(id) {
 
     const risposta =
         await fetch(
-            "httpsordini-tiscali.onrender.com/admin/riattiva-punto-vendita",
+            ${API_URL}/admin/riattiva-punto-vendita,
             {
 
                 method:"POST",
@@ -2142,7 +2076,7 @@ async function mostraMioAccount() {
 
         const risposta =
             await fetch(
-                `httpsordini-tiscali.onrender.com/account/${id}`
+                `${API_URL}/account/${id}`
             );
 
 
@@ -2284,7 +2218,7 @@ async function salvaMioAccount() {
 
     const risposta =
         await fetch(
-            "httpsordini-tiscali.onrender.com/account/modifica",
+            ${API_URL}/account/modifica,
             {
 
                 method:"POST",
@@ -2366,5 +2300,3 @@ window.inviaATiscali =
 window.caricaExcel = caricaExcel;
 
 console.log("APP JS CARICATO FINO ALLA FINE");
-
-console.log("TEST GITHUB 123");
