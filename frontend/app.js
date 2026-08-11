@@ -1296,7 +1296,7 @@ async function effettuaLogin() {
     try {
 
         const risposta = await fetch(
-            "http://https://ordini-tiscali.onrender.com/login",
+            "https://ordini-tiscali.onrender.com/login",
             {
                 method: "POST",
 
