@@ -565,7 +565,7 @@ async function meno(index) {
 
             const risposta =
                 await fetch(
-                    ${API_URL}/ordine/prodotto/modifica,
+                    `${API_URL}/ordine/prodotto/modifica`,
                     {
                         method: "POST",
 
