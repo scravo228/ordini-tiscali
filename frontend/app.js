@@ -1451,8 +1451,7 @@ async function caricaPuntiVenditaAdmin() {
 
 
         const risposta =
-            await fetch(
-                const risposta =
+            
             await fetch(
                 `${API_URL}/admin/punti-vendita`
             );
