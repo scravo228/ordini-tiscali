@@ -638,7 +638,7 @@ async function meno(index) {
 
         const risposta =
             await fetch(
-                ${API_URL}/ordine/prodotto/elimina,
+                `${API_URL}/ordine/prodotto/elimina`,
                 {
                     method: "POST",
 
@@ -741,7 +741,7 @@ async function azzeraOrdine() {
 
         const risposta =
             await fetch(
-                ${API_URL}/ordine/database/azzera,
+                `${API_URL}/ordine/database/azzera`,
                 {
                     method: "POST",
 
@@ -1231,7 +1231,7 @@ async function effettuaLogin() {
     try {
 
         const risposta = await fetch(
-            ${API_URL}/login,
+            `${API_URL}/login`,
             {
                 method: "POST",
 
@@ -1452,7 +1452,9 @@ async function caricaPuntiVenditaAdmin() {
 
         const risposta =
             await fetch(
-                ${API_URL}/admin/punti-vendita
+                const risposta =
+            await fetch(
+                `${API_URL}/admin/punti-vendita`
             );
 
 
@@ -1602,7 +1604,7 @@ async function creaNuovoPuntoVendita() {
 
         const risposta =
             await fetch(
-                ${API_URL}/admin/crea-punto-vendita,
+                `${API_URL}/admin/crea-punto-vendita`
                 {
 
                     method: "POST",
@@ -1709,7 +1711,7 @@ async function disattivaPuntoVendita(id) {
 
         const risposta =
             await fetch(
-                ${API_URL}/admin/disattiva-punto-vendita,
+               `${API_URL}/admin/disattiva-punto-vendita`,
                 {
 
                     method:"POST",
@@ -1761,7 +1763,7 @@ async function apriModificaPuntoVendita(id) {
 
     const risposta =
         await fetch(
-            ${API_URL}/admin/punti-vendita
+           `${API_URL}/admin/punti-vendita`
         );
 
     const dati =
@@ -1868,7 +1870,7 @@ async function salvaModificaPuntoVendita(id) {
 
         const risposta =
             await fetch(
-                ${API_URL}/admin/modifica-punto-vendita,
+                `${API_URL}/admin/modifica-punto-vendita`,
                 {
 
                     method:"POST",
@@ -2018,7 +2020,7 @@ async function riattivaPuntoVendita(id) {
 
     const risposta =
         await fetch(
-            ${API_URL}/admin/riattiva-punto-vendita,
+            `${API_URL}/admin/riattiva-punto-vendita`,
             {
 
                 method:"POST",
@@ -2219,7 +2221,7 @@ async function salvaMioAccount() {
 
     const risposta =
         await fetch(
-            ${API_URL}/account/modifica,
+            `${API_URL}/account/modifica`,
             {
 
                 method:"POST",
