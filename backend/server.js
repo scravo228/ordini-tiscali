@@ -1325,12 +1325,52 @@ app.post("/ordine/invia-tiscali", async (req, res) => {
 
                 // 2. LOGIN TISCALI
 
-                const login =
-                    await tiscali.loginTiscali(
-                        process.env.TISCALI_USERNAME,
-                        process.env.TISCALI_PASSWORD
-                    );
+                const puntoVendita =
+    await new Promise((resolve, reject) => {
 
+        ordiniDatabase.getPuntoVenditaById(
+            ordine.puntoVenditaId,
+            (err, punto) => {
+
+                if (err) {
+                    reject(err);
+                    return;
+                }
+
+                resolve(punto);
+            }
+        );
+
+    });
+
+if (!puntoVendita) {
+
+    return res.status(404).json({
+        successo: false,
+        fase: "account",
+        errore: "Punto vendita non trovato"
+    });
+
+}
+
+if (
+    !puntoVendita.tiscaliUsername ||
+    !puntoVendita.tiscaliPassword
+) {
+
+    return res.status(400).json({
+        successo: false,
+        fase: "account",
+        errore: "Credenziali Tiscali non configurate"
+    });
+
+}
+
+const login =
+    await tiscali.loginTiscali(
+        puntoVendita.tiscaliUsername,
+        puntoVendita.tiscaliPassword
+    );
                 if (!login.successo) {
                     return res.status(500).json({
                         successo: false,
