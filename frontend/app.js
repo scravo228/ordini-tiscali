@@ -1,3 +1,4 @@
+
 let contenutoOrdine = "";
 let schermataOrdineSalvata = "";
 let prodotti = [];
@@ -10,7 +11,6 @@ let puntoVenditaId =
     "ID PUNTO VENDITA CARICATO:",
     puntoVenditaId
 );
-
 
 // =====================================================
 // APERTURA ORDINE
@@ -2301,3 +2301,4 @@ window.inviaATiscali =
 window.caricaExcel = caricaExcel;
 
 console.log("APP JS CARICATO FINO ALLA FINE");
+
