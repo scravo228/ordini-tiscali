@@ -1065,7 +1065,7 @@ async function inviaATiscali() {
         console.log("Invio ordine Tiscali:", ordineId);
 
         const risposta = await fetch(
-            ${API_URL}/ordine/invia-tiscali`,
+            `${API_URL}/ordine/invia-tiscali`,
             {
                 method: "POST",
 
