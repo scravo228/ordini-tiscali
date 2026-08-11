@@ -30,7 +30,7 @@ async function apriOrdine() {
     try {
 
         const risposta = await fetch(
-            "http://192.168.1.203:3000/ordine/apri",
+            "http://https://ordini-tiscali.onrender.com/ordine/apri",
             {
                 method: "POST",
 
@@ -112,7 +112,7 @@ async function mostraMioAccount() {
 
         const risposta =
             await fetch(
-                `http://192.168.1.203:3000/admin/punti-vendita`
+                `http://https://ordini-tiscali.onrender.com/admin/punti-vendita`
             );
 
 
@@ -256,7 +256,7 @@ async function caricaExcel() {
 
       const risposta =
     await fetch(
-        "http://192.168.1.203:3000/upload-excel",
+        "http://https://ordini-tiscali.onrender.com/upload-excel",
         {
             method: "POST",
             body: formData
@@ -475,7 +475,7 @@ async function piu(index) {
 
         const risposta =
             await fetch(
-                "http://192.168.1.203:3000/ordine/prodotto",
+                "http://https://ordini-tiscali.onrender.com/ordine/prodotto",
                 {
                     method: "POST",
 
@@ -573,7 +573,7 @@ async function meno(index) {
 
             const risposta =
                 await fetch(
-                    "http://192.168.1.203:3000/ordine/prodotto/modifica",
+                    "http://https://ordini-tiscali.onrender.com/ordine/prodotto/modifica",
                     {
                         method: "POST",
 
@@ -646,7 +646,7 @@ async function meno(index) {
 
         const risposta =
             await fetch(
-                "http://192.168.1.203:3000/ordine/prodotto/elimina",
+                "http://https://ordini-tiscali.onrender.com/ordine/prodotto/elimina",
                 {
                     method: "POST",
 
@@ -749,7 +749,7 @@ async function azzeraOrdine() {
 
         const risposta =
             await fetch(
-                "http://192.168.1.203:3000/ordine/database/azzera",
+                "http://https://ordini-tiscali.onrender.com/ordine/database/azzera",
                 {
                     method: "POST",
 
@@ -950,7 +950,7 @@ async function creaPDF() {
 
         const risposta =
             await fetch(
-                "http://192.168.1.203:3000/crea-pdf",
+                "http://https://ordini-tiscali.onrender.com/crea-pdf",
                 {
                     method: "POST",
 
@@ -1063,7 +1063,7 @@ async function inviaATiscali() {
         console.log("Invio ordine Tiscali:", ordineId);
 
         const risposta = await fetch(
-            "http://192.168.1.203:3000/ordine/invia-tiscali",
+            "http://https://ordini-tiscali.onrender.com/ordine/invia-tiscali",
             {
                 method: "POST",
 
@@ -1237,7 +1237,7 @@ async function effettuaLogin() {
 
     const risposta =
         await fetch(
-            "http://192.168.1.203:3000/login",
+            "http://https://ordini-tiscali.onrender.com/login",
             {
                 method: "POST",
 
@@ -1296,7 +1296,7 @@ async function effettuaLogin() {
     try {
 
         const risposta = await fetch(
-            "http://192.168.1.203:3000/login",
+            "http://https://ordini-tiscali.onrender.com/login",
             {
                 method: "POST",
 
@@ -1517,7 +1517,7 @@ async function caricaPuntiVenditaAdmin() {
 
         const risposta =
             await fetch(
-                "http://192.168.1.203:3000/admin/punti-vendita"
+                "http://https://ordini-tiscali.onrender.com/admin/punti-vendita"
             );
 
 
@@ -1667,7 +1667,7 @@ async function creaNuovoPuntoVendita() {
 
         const risposta =
             await fetch(
-                "http://192.168.1.203:3000/admin/crea-punto-vendita",
+                "http://https://ordini-tiscali.onrender.com/admin/crea-punto-vendita",
                 {
 
                     method: "POST",
@@ -1774,7 +1774,7 @@ async function disattivaPuntoVendita(id) {
 
         const risposta =
             await fetch(
-                "http://192.168.1.203:3000/admin/disattiva-punto-vendita",
+                "http://https://ordini-tiscali.onrender.com/admin/disattiva-punto-vendita",
                 {
 
                     method:"POST",
@@ -1826,7 +1826,7 @@ async function apriModificaPuntoVendita(id) {
 
     const risposta =
         await fetch(
-            "http://192.168.1.203:3000/admin/punti-vendita"
+            "http://https://ordini-tiscali.onrender.com/admin/punti-vendita"
         );
 
     const dati =
@@ -1933,7 +1933,7 @@ async function salvaModificaPuntoVendita(id) {
 
         const risposta =
             await fetch(
-                "http://192.168.1.203:3000/admin/modifica-punto-vendita",
+                "http://https://ordini-tiscali.onrender.com/admin/modifica-punto-vendita",
                 {
 
                     method:"POST",
@@ -2083,7 +2083,7 @@ async function riattivaPuntoVendita(id) {
 
     const risposta =
         await fetch(
-            "http://192.168.1.203:3000/admin/riattiva-punto-vendita",
+            "http://https://ordini-tiscali.onrender.com/admin/riattiva-punto-vendita",
             {
 
                 method:"POST",
@@ -2142,7 +2142,7 @@ async function mostraMioAccount() {
 
         const risposta =
             await fetch(
-                `http://192.168.1.203:3000/account/${id}`
+                `http://https://ordini-tiscali.onrender.com/account/${id}`
             );
 
 
@@ -2284,7 +2284,7 @@ async function salvaMioAccount() {
 
     const risposta =
         await fetch(
-            "http://192.168.1.203:3000/account/modifica",
+            "http://https://ordini-tiscali.onrender.com/account/modifica",
             {
 
                 method:"POST",
