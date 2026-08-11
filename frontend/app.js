@@ -15,7 +15,10 @@ let puntoVenditaId =
 // =====================================================
 // APERTURA ORDINE
 // =====================================================
-
+const API_URL =
+    window.location.hostname === "localhost"
+        ? "http://localhost:3000"
+        : "https://ordini-tiscali.onrender.com";
 async function apriOrdine() {
     if (!puntoVenditaId) {
 
