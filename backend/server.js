@@ -1262,6 +1262,113 @@ app.post("/carrello/rimuovi", async (req, res) => {
     }
 
 });
+
+
+app.post("/ordine/test-login-tiscali", async (req, res) => {
+
+    try {
+
+        const { puntoVenditaId } = req.body;
+
+        if (!puntoVenditaId) {
+
+            return res.status(400).json({
+                successo: false,
+                errore: "puntoVenditaId mancante"
+            });
+
+        }
+
+        const puntoVendita =
+            await new Promise((resolve, reject) => {
+
+                ordiniDatabase.getPuntoVenditaById(
+                    puntoVenditaId,
+                    (err, punto) => {
+
+                        if (err) {
+                            reject(err);
+                            return;
+                        }
+
+                        resolve(punto);
+                    }
+                );
+
+            });
+
+        if (!puntoVendita) {
+
+            return res.status(404).json({
+                successo: false,
+                errore: "Punto vendita non trovato"
+            });
+
+        }
+
+        if (
+            !puntoVendita.tiscaliUsername ||
+            !puntoVendita.tiscaliPassword
+        ) {
+
+            return res.status(400).json({
+                successo: false,
+                errore: "Credenziali Tiscali non configurate"
+            });
+
+        }
+
+        console.log(
+            "TEST LOGIN TISCALI - PUNTO VENDITA:",
+            puntoVenditaId
+        );
+
+        const login =
+            await tiscali.loginTiscali(
+                puntoVendita.tiscaliUsername,
+                puntoVendita.tiscaliPassword
+            );
+
+        return res.json({
+
+            successo: login.successo === true,
+
+            login: {
+
+                successo:
+                    login.successo === true,
+
+                status:
+                    login.status || null,
+
+                errore:
+                    login.successo
+                        ? null
+                        : login.errore
+
+            }
+
+        });
+
+    } catch (errore) {
+
+        console.error(
+            "ERRORE TEST LOGIN TISCALI:",
+            errore
+        );
+
+        return res.status(500).json({
+
+            successo: false,
+
+            errore: errore.message
+
+        });
+
+    }
+
+});
+
 app.post("/ordine/invia-tiscali", async (req, res) => {
 
     try {

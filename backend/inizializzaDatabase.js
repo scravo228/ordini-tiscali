@@ -1,9 +1,8 @@
 const db = require("./database");
 
-
 db.run(
     `
-    INSERT INTO punti_vendita (id, nome)
+    INSERT OR IGNORE INTO punti_vendita (id, nome)
     VALUES (?, ?)
     `,
     [
@@ -14,11 +13,16 @@ db.run(
 
         if (err) {
 
-            console.log("Errore:", err.message);
+            console.log(
+                "Errore:",
+                err.message
+            );
 
         } else {
 
-            console.log("Punto vendita inserito");
+            console.log(
+                "Controllo punto vendita completato"
+            );
 
         }
 
