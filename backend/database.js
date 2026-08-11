@@ -13,7 +13,6 @@ const db = new sqlite3.Database(
     }
 );
 
-
 db.serialize(() => {
 
     db.run(`
@@ -28,7 +27,6 @@ db.serialize(() => {
         )
     `);
 
-
     db.run(`
         CREATE TABLE IF NOT EXISTS ordini (
 
@@ -38,7 +36,6 @@ db.serialize(() => {
 
         )
     `);
-
 
     db.run(`
         CREATE TABLE IF NOT EXISTS dettagli_ordine (
@@ -52,58 +49,65 @@ db.serialize(() => {
         )
     `);
 
-});
-db.run(`
-    CREATE TABLE IF NOT EXISTS dettagli_ordine (
-        ...
-    )
-`);
-db.get(
-    `SELECT id FROM punti_vendita WHERE codice = ?`,
-    ["STAMPU01"],
-    (err, riga) => {
+    db.get(
+        `SELECT id FROM punti_vendita WHERE codice = ?`,
+        ["STAMPU01"],
+        (err, riga) => {
 
-        if (err) {
-            console.error("Errore controllo STAMPU01:", err);
-            return;
-        }
+            if (err) {
 
-        if (!riga) {
+                console.error(
+                    "Errore controllo STAMPU01:",
+                    err
+                );
 
-            db.run(
-                `
-                INSERT INTO punti_vendita
-                (nome, codice, password, attivo)
-                VALUES (?, ?, ?, 1)
-                `,
-                [
-                    "STAMPU",
-                    "STAMPU01",
-                    "1234"
-                ],
-                (err) => {
+                return;
+            }
 
-                    if (err) {
-                        console.error(
-                            "Errore creazione STAMPU01:",
-                            err
-                        );
-                    } else {
-                        console.log(
-                            "Punto vendita STAMPU01 creato"
-                        );
+            if (!riga) {
+
+                db.run(
+                    `
+                    INSERT INTO punti_vendita
+                    (nome, codice, password, attivo)
+                    VALUES (?, ?, ?, 1)
+                    `,
+                    [
+                        "STAMPU",
+                        "STAMPU01",
+                        "1234"
+                    ],
+                    (err) => {
+
+                        if (err) {
+
+                            console.error(
+                                "Errore creazione STAMPU01:",
+                                err
+                            );
+
+                        } else {
+
+                            console.log(
+                                "Punto vendita STAMPU01 creato"
+                            );
+
+                        }
+
                     }
+                );
 
-                }
-            );
+            } else {
 
-        } else {
+                console.log(
+                    "STAMPU01 già presente"
+                );
 
-            console.log(
-                "STAMPU01 già presente"
-            );
+            }
 
         }
+    );
 
-    }
-);
+});
+
+module.exports = db;
