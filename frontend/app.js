@@ -2367,3 +2367,4 @@ window.caricaExcel = caricaExcel;
 
 console.log("APP JS CARICATO FINO ALLA FINE");
 
+console.log("TEST GITHUB 123");
