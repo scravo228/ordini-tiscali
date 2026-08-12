@@ -1266,6 +1266,43 @@ app.post("/ordine-tiscali", async (req, res) => {
 
 });
 
+app.post("/svuota-carrello-tiscali", async (req, res) => {
+
+    try {
+
+        console.log("=================================");
+        console.log("RICHIESTA SVUOTAMENTO CARRELLO");
+        console.log("=================================");
+
+        const risultato =
+            await tiscali.svuotaCarrelloTiscali();
+
+        console.log("RISULTATO SVUOTAMENTO:");
+        console.dir(risultato, { depth: null });
+
+        return res.json(risultato);
+
+    } catch (errore) {
+
+        console.error(
+            "ERRORE ENDPOINT SVUOTA CARRELLO:",
+            errore
+        );
+
+        return res.status(500).json({
+
+            successo: false,
+
+            carrelloVuoto: false,
+
+            errore:
+                errore.message
+
+        });
+
+    }
+
+});
 
 // =====================================================
 // GESTIONE CARRELLO TISCALI
