@@ -12,6 +12,11 @@ const ordiniDatabase = require("./ordiniDatabase");
 
 
 
+
+
+
+
+
 const puntiVendita = require("./puntiVendita");
 const prodotti = require("./prodotti");
 const listaPuntiVendita = require("./listaPuntiVendita");
@@ -20,7 +25,42 @@ const ordini = require("./ordini");
 
 const app = express();
 
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
+
+
+// =====================================================
+// AUTO-PING RENDER
+// =====================================================
+
+if (process.env.NODE_ENV === "production") {
+
+    const autoPingUrl =
+        "https://ordini-tiscali.onrender.com/";
+
+    setInterval(async () => {
+
+        try {
+
+            const risposta =
+                await fetch(autoPingUrl);
+
+            console.log(
+                "AUTO-PING RENDER:",
+                risposta.status
+            );
+
+        } catch (errore) {
+
+            console.log(
+                "ERRORE AUTO-PING:",
+                errore.message
+            );
+
+        }
+
+    }, 10 * 60 * 1000);
+
+}
 
 const upload = multer({
     dest: "uploads/"
@@ -28,6 +68,78 @@ const upload = multer({
 
 app.use(cors());
 app.use(express.json());
+
+
+
+
+
+
+
+
+
+app.post("/admin/ripristina-admin", (req, res) => {
+
+    ordiniDatabase.verificaLogin(
+        "ADMIN",
+        "1234",
+        (err, amministratore) => {
+
+            if (err) {
+
+                return res.status(500).json({
+                    successo: false,
+                    fase: "controllo",
+                    errore: err.message
+                });
+
+            }
+
+            if (amministratore) {
+
+                return res.json({
+                    successo: true,
+                    messaggio: "Account ADMIN già presente",
+                    amministratoreId: amministratore.id
+                });
+
+            }
+
+            ordiniDatabase.creaAmministratore(
+                "ADMIN",
+                "1234",
+                (err, id) => {
+
+                    if (err) {
+
+                        return res.status(500).json({
+                            successo: false,
+                            fase: "creazione",
+                            errore: err.message
+                        });
+
+                    }
+
+                    return res.json({
+                        successo: true,
+                        messaggio: "Account ADMIN creato",
+                        amministratoreId: id
+                    });
+
+                }
+            );
+
+        }
+    );
+
+});
+
+
+
+
+
+
+
+
 
 
 // =====================================================
@@ -1262,6 +1374,113 @@ app.post("/carrello/rimuovi", async (req, res) => {
     }
 
 });
+
+
+app.post("/ordine/test-login-tiscali", async (req, res) => {
+
+    try {
+
+        const { puntoVenditaId } = req.body;
+
+        if (!puntoVenditaId) {
+
+            return res.status(400).json({
+                successo: false,
+                errore: "puntoVenditaId mancante"
+            });
+
+        }
+
+        const puntoVendita =
+            await new Promise((resolve, reject) => {
+
+                ordiniDatabase.getPuntoVenditaById(
+                    puntoVenditaId,
+                    (err, punto) => {
+
+                        if (err) {
+                            reject(err);
+                            return;
+                        }
+
+                        resolve(punto);
+                    }
+                );
+
+            });
+
+        if (!puntoVendita) {
+
+            return res.status(404).json({
+                successo: false,
+                errore: "Punto vendita non trovato"
+            });
+
+        }
+
+        if (
+            !puntoVendita.tiscaliUsername ||
+            !puntoVendita.tiscaliPassword
+        ) {
+
+            return res.status(400).json({
+                successo: false,
+                errore: "Credenziali Tiscali non configurate"
+            });
+
+        }
+
+        console.log(
+            "TEST LOGIN TISCALI - PUNTO VENDITA:",
+            puntoVenditaId
+        );
+
+        const login =
+            await tiscali.loginTiscali(
+                puntoVendita.tiscaliUsername,
+                puntoVendita.tiscaliPassword
+            );
+
+        return res.json({
+
+            successo: login.successo === true,
+
+            login: {
+
+                successo:
+                    login.successo === true,
+
+                status:
+                    login.status || null,
+
+                errore:
+                    login.successo
+                        ? null
+                        : login.errore
+
+            }
+
+        });
+
+    } catch (errore) {
+
+        console.error(
+            "ERRORE TEST LOGIN TISCALI:",
+            errore
+        );
+
+        return res.status(500).json({
+
+            successo: false,
+
+            errore: errore.message
+
+        });
+
+    }
+
+});
+
 app.post("/ordine/invia-tiscali", async (req, res) => {
 
     try {
@@ -1325,12 +1544,52 @@ app.post("/ordine/invia-tiscali", async (req, res) => {
 
                 // 2. LOGIN TISCALI
 
-                const login =
-                    await tiscali.loginTiscali(
-                        process.env.TISCALI_USERNAME,
-                        process.env.TISCALI_PASSWORD
-                    );
+                const puntoVendita =
+    await new Promise((resolve, reject) => {
 
+        ordiniDatabase.getPuntoVenditaById(
+            ordine.puntoVenditaId,
+            (err, punto) => {
+
+                if (err) {
+                    reject(err);
+                    return;
+                }
+
+                resolve(punto);
+            }
+        );
+
+    });
+
+if (!puntoVendita) {
+
+    return res.status(404).json({
+        successo: false,
+        fase: "account",
+        errore: "Punto vendita non trovato"
+    });
+
+}
+
+if (
+    !puntoVendita.tiscaliUsername ||
+    !puntoVendita.tiscaliPassword
+) {
+
+    return res.status(400).json({
+        successo: false,
+        fase: "account",
+        errore: "Credenziali Tiscali non configurate"
+    });
+
+}
+
+const login =
+    await tiscali.loginTiscali(
+        puntoVendita.tiscaliUsername,
+        puntoVendita.tiscaliPassword
+    );
                 if (!login.successo) {
                     return res.status(500).json({
                         successo: false,
