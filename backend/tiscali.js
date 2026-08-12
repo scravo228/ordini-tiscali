@@ -1921,156 +1921,20 @@ async function verificaSessioneTiscali() {
     }
 }
 
-async function rimuoviProdottoCarrelloTiscali(productId) {
+async function rimuoviProdottoCarrelloTiscali(rowId) {
 
     try {
 
-        console.log("=== RIMOZIONE PRODOTTO DAL CARRELLO ===");
-        console.log("PRODUCT ID:", productId);
-
-        // 1. Leggiamo il carrello attuale
-        const rispostaCarrello = await tiscali.get(
-            "https://www.tiscaliformaggi.com/it/catalogo/carrello"
-        );
-
-        const html = rispostaCarrello.data;
+        console.log("=================================");
+        console.log("RIMOZIONE PRODOTTO DAL CARRELLO");
+        console.log("=================================");
 
         console.log(
-            "CARRELLO LETTO - STATUS:",
-            rispostaCarrello.status
-        );
-
-        // =====================================================
-        // 2. CERCHIAMO DIRETTAMENTE NELL'HTML LA RIGA
-        // =====================================================
-
-        const productIdString = String(productId);
-
-      const pattern = new RegExp(
-    '(data-entryid|data-rowid)=["\\\']' +
-    productIdString.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
-    '["\\\'][^>]*',
-    "i"
-);
-
-        const match = html.match(pattern);
-console.log("=== DEBUG HTML PRODOTTO ===");
-
-const posizioneProdotto = html.indexOf(productIdString);
-
-console.log(
-    "POSIZIONE PRODUCT ID NELL'HTML:",
-    posizioneProdotto
-);
-
-if (posizioneProdotto !== -1) {
-
-    console.log(
-        "HTML INTORNO AL PRODUCT ID:"
-    );
-
-    console.log(
-        html.substring(
-            Math.max(0, posizioneProdotto - 1000),
-            Math.min(
-                html.length,
-                posizioneProdotto + 2000
-            )
-        )
-    );
-
-}
-
-        console.log(
-            "RIGA PRODUCT TROVATA:",
-            !!match
-        );
-
-        if (!match) {
-
-            console.log(
-                "PRODOTTO NON TROVATO NELL'HTML DEL CARRELLO"
-            );
-
-            return {
-
-                successo: true,
-
-                rimosso: false,
-
-                trovato: false,
-
-                productId: productIdString,
-
-                messaggio:
-                    "Prodotto non presente nel carrello"
-
-            };
-
-        }
-
-        const rigaHTML = match[0];
-
-        console.log(
-            "RIGA TROVATA:"
-        );
-
-        console.log(
-            rigaHTML
-        );
-
-        // =====================================================
-        // 3. ESTRAIAMO IL ROW ID
-        // =====================================================
-
-       const matchRowId =
-    rigaHTML.match(
-        /data-rowid=["']([^"']+)["']/i
-    );
-
-        const rowId =
-            matchRowId
-                ? matchRowId[1]
-                : null;
-
-        // =====================================================
-        // 4. ESTRAIAMO LA QUANTITÀ
-        // =====================================================
-
-        const matchQuantity =
-            rigaHTML.match(
-                /data-quantity=["']([^"']+)["']/i
-            );
-
-        const quantitaAttuale =
-            matchQuantity
-                ? matchQuantity[1]
-                : null;
-
-        console.log(
-            "PRODUCT ID TROVATO:",
-            productIdString
-        );
-
-        console.log(
-            "ROW ID TROVATO:",
+            "ROW ID:",
             rowId
         );
 
-        console.log(
-            "QUANTITÀ ATTUALE:",
-            quantitaAttuale
-        );
-
-        // =====================================================
-        // 5. CONTROLLO ROW ID
-        // =====================================================
-
         if (!rowId) {
-
-            console.log(
-                "ROW ID NON TROVATO"
-            );
 
             return {
 
@@ -2078,93 +1942,93 @@ if (posizioneProdotto !== -1) {
 
                 rimosso: false,
 
-                trovato: true,
-
-                productId: productIdString,
-
-                messaggio:
-                    "Prodotto trovato ma rowId non trovato"
+                errore:
+                    "Row ID mancante"
 
             };
 
         }
 
-        // =====================================================
-        // 6. TOKEN CSRF
-        // =====================================================
+        const rowIdString =
+            String(rowId);
 
         // =====================================================
-// 6. TOKEN CSRF
-// =====================================================
+        // 1. PAGINA CARRELLO
+        // =====================================================
 
-const $ = cheerio.load(html);
+        console.log(
+            "GET PAGINA CARRELLO"
+        );
 
-let token = null;
+        const rispostaCarrello =
+            await tiscali.get(
+                "https://www.tiscaliformaggi.com/it/catalogo/carrello",
+                {
+                    headers: {
 
-// Prima cerchiamo il token nell'HTML
-$('input[name="__RequestVerificationToken"]').each(
-    (i, elemento) => {
+                        "Referer":
+                            "https://www.tiscaliformaggi.com/it/catalogo/carrello"
+
+                    },
+
+                    validateStatus:
+                        () => true
+
+                }
+            );
+
+        const html =
+            rispostaCarrello.data;
+
+        console.log(
+            "STATUS CARRELLO:",
+            rispostaCarrello.status
+        );
+
+        // =====================================================
+        // 2. TOKEN CSRF
+        // =====================================================
+
+        const $ =
+            cheerio.load(html);
+
+        let token = null;
+
+        $('input[name="__RequestVerificationToken"]')
+            .each(
+                (i, elemento) => {
+
+                    if (!token) {
+
+                        token =
+                            $(elemento)
+                                .attr("value");
+
+                    }
+
+                }
+            );
 
         if (!token) {
 
-            token =
-                $(elemento).attr("value");
+            throw new Error(
+                "Token __RequestVerificationToken non trovato"
+            );
 
         }
 
-    }
-);
-
-// Se il token non è nell'HTML,
-// controlliamo i cookie della sessione
-if (!token) {
-
-    const cookies =
-        await jar.getCookies(
-            "https://www.tiscaliformaggi.com"
+        console.log(
+            "TOKEN TROVATO:",
+            true
         );
-
-    console.log(
-        "COOKIE PRESENTI:",
-        cookies.length
-    );
-
-    const cookieAntiforgery =
-        cookies.find(
-            cookie =>
-                cookie.key.startsWith(
-                    ".AspNetCore.Antiforgery."
-                )
-        );
-
-    if (cookieAntiforgery) {
-
-        token =
-            cookieAntiforgery.value;
 
         console.log(
-            "TOKEN RECUPERATO DAL COOKIE ANTIFORGERY"
+            "TOKEN LUNGHEZZA:",
+            token.length
         );
 
-    }
-
-}
-
-console.log(
-    "TOKEN TROVATO:",
-    !!token
-);
-
-if (!token) {
-
-    throw new Error(
-        "Token __RequestVerificationToken non trovato"
-    );
-
-}
-
         // =====================================================
-        // 7. PREPARIAMO REMOVE
+        // 3. PREPARA DATI REMOVE
         // =====================================================
 
         const dati =
@@ -2172,7 +2036,7 @@ if (!token) {
 
         dati.append(
             "_id",
-            rowId
+            rowIdString
         );
 
         dati.append(
@@ -2186,12 +2050,16 @@ if (!token) {
         );
 
         console.log(
-            "=== INVIO REMOVE ==="
+            "================================="
+        );
+
+        console.log(
+            "INVIO POST /Async/Cart/Remove"
         );
 
         console.log(
             "_id:",
-            rowId
+            rowIdString
         );
 
         console.log(
@@ -2200,7 +2068,7 @@ if (!token) {
         );
 
         // =====================================================
-        // 8. CHIAMATA A TISCALI
+        // 4. REMOVE
         // =====================================================
 
         const rispostaRemove =
@@ -2221,9 +2089,15 @@ if (!token) {
                             "XMLHttpRequest",
 
                         "Referer":
-                            "https://www.tiscaliformaggi.com/it/catalogo/carrello"
+                            "https://www.tiscaliformaggi.com/it/catalogo/carrello",
 
-                    }
+                        "Origin":
+                            "https://www.tiscaliformaggi.com"
+
+                    },
+
+                    validateStatus:
+                        () => true
 
                 }
 
@@ -2234,14 +2108,23 @@ if (!token) {
             rispostaRemove.status
         );
 
+        console.log(
+            "RISPOSTA REMOVE:"
+        );
+
+        console.dir(
+            rispostaRemove.data,
+            { depth: null }
+        );
+
         // =====================================================
-        // 9. ANALIZZIAMO RISPOSTA
+        // 5. ANALISI RISPOSTA
         // =====================================================
 
         let risultatoRemove;
 
         if (
-            typeof rispostaRemove?.data ===
+            typeof rispostaRemove.data ===
             "string"
         ) {
 
@@ -2270,82 +2153,70 @@ if (!token) {
 
         }
 
+        const rimosso =
+            risultatoRemove?.rimosso === true;
+
         console.log(
-            "RISPOSTA REMOVE:",
-            risultatoRemove
+            "TISCALI CONFERMA RIMOZIONE:",
+            rimosso
         );
 
         // =====================================================
-        // 10. TISCALI CONFERMA LA RIMOZIONE?
-        // =====================================================
-
-        const rimosso =
-            risultatoRemove &&
-            risultatoRemove.rimosso === true;
-
-        // =====================================================
-        // 11. RILEGGIAMO IL CARRELLO
+        // 6. VERIFICA CARRELLO
         // =====================================================
 
         const verifica =
-            await tiscali.get(
-                "https://www.tiscaliformaggi.com/it/catalogo/carrello"
-            );
-
-        const htmlVerifica =
-            verifica.data;
-
-        const patternVerifica =
-            new RegExp(
-                'data-entryid=["\\\']' +
-                productIdString.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") +
-                '["\\\']',
-                "i"
-            );
-
-        const ancoraPresente =
-            patternVerifica.test(
-                htmlVerifica
-            );
+            await leggiCarrelloTiscali();
 
         console.log(
-            "PRODOTTO ANCORA PRESENTE:",
-            ancoraPresente
+            "CARRELLO DOPO RIMOZIONE:"
+        );
+
+        console.dir(
+            verifica,
+            { depth: null }
         );
 
         // =====================================================
-        // 12. RISULTATO FINALE
+        // 7. RISULTATO
         // =====================================================
 
         return {
 
-            successo: true,
+            successo:
+                rispostaRemove.status === 200 &&
+                rimosso,
 
-            rimosso:
-                rimosso && !ancoraPresente,
+            rimosso,
 
-            trovato: true,
-
-            productId:
-                productIdString,
-
-            rowId,
-
-            quantitaPrima:
-                quantitaAttuale,
-
-            ancoraPresente,
+            rowId:
+                rowIdString,
 
             risposta:
-                risultatoRemove
+                risultatoRemove,
+
+            verificaCarrello:
+                verifica
 
         };
 
     } catch (errore) {
 
         console.error(
-            "ERRORE RIMOZIONE CARRELLO:",
+            "================================="
+        );
+
+        console.error(
+            "ERRORE RIMOZIONE CARRELLO"
+        );
+
+        console.error(
+            "MESSAGGIO:",
             errore.message
+        );
+
+        console.error(
+            "================================="
         );
 
         return {
@@ -2373,68 +2244,76 @@ async function svuotaCarrelloTiscali() {
         let rimossi = [];
         let errori = [];
 
-        // Limite di sicurezza per evitare loop infiniti
         const MAX_TENTATIVI = 100;
 
-        for (let tentativo = 1; tentativo <= MAX_TENTATIVI; tentativo++) {
+        for (
+            let tentativo = 1;
+            tentativo <= MAX_TENTATIVI;
+            tentativo++
+        ) {
 
             console.log(
                 `\n--- LETTURA CARRELLO ${tentativo} ---`
             );
 
-            const rispostaCarrello = await tiscali.get(
-                "https://www.tiscaliformaggi.com/it/catalogo/carrello"
-            );
+            // =====================================================
+            // LEGGIAMO IL CARRELLO CON LA FUNZIONE GIÀ CORRETTA
+            // =====================================================
 
-            const html = rispostaCarrello.data;
-
-            /*
-             * Cerchiamo tutti i data-entryid presenti
-             * nelle righe del carrello.
-             */
-            const regexEntryId =
-    /data-entryid=["']([^"']+)["']/gi;
-
-const regexRowId =
-    /data-rowid=["']([^"']+)["']/gi;
-
-const productIds = [];
-
-let match;
-
-while ((match = regexEntryId.exec(html)) !== null) {
-
-    const id = String(match[1]).trim();
-
-    if (id && !productIds.includes(id)) {
-        productIds.push(id);
-    }
-
-}
-
-while ((match = regexRowId.exec(html)) !== null) {
-
-    const id = String(match[1]).trim();
-
-    if (id && !productIds.includes(id)) {
-        productIds.push(id);
-    }
-
-}
+            const carrello =
+                await contaArticoliCarrelloTiscali();
 
             console.log(
-                "PRODOTTI TROVATI NEL CARRELLO:",
-                productIds
+                "RISULTATO LETTURA CARRELLO:"
             );
 
-            /*
-             * Se non troviamo più prodotti,
-             * il carrello è vuoto.
-             */
-            if (productIds.length === 0) {
+            console.dir(
+                carrello,
+                { depth: null }
+            );
+
+            if (!carrello.successo) {
+
+                return {
+
+                    successo: false,
+
+                    carrelloVuoto: false,
+
+                    numeroRimossi:
+                        rimossi.length,
+
+                    rimossi,
+
+                    errori,
+
+                    errore:
+                        carrello.errore ||
+                        "Impossibile leggere il carrello"
+
+                };
+
+            }
+
+            // =====================================================
+            // CARRELLO VUOTO
+            // =====================================================
+
+            if (
+                !carrello.articoli ||
+                carrello.articoli.length === 0
+            ) {
+
+                console.log(
+                    "================================="
+                );
 
                 console.log(
                     "=== CARRELLO VUOTO ==="
+                );
+
+                console.log(
+                    "================================="
                 );
 
                 return {
@@ -2446,36 +2325,98 @@ while ((match = regexRowId.exec(html)) !== null) {
                     numeroRimossi:
                         rimossi.length,
 
-                    rimossi: rimossi,
+                    rimossi,
 
-                    errori: errori
+                    errori
 
                 };
 
             }
 
-            /*
-             * Prendiamo il primo prodotto
-             * e utilizziamo la funzione di rimozione
-             * che abbiamo già verificato.
-             */
-            const productId =
-                productIds[0];
+            // =====================================================
+            // PRENDIAMO IL PRIMO ARTICOLO
+            // =====================================================
+
+            const articolo =
+                carrello.articoli[0];
 
             console.log(
-                "RIMUOVO PRODUCT ID:",
+                "ARTICOLO DA RIMUOVERE:"
+            );
+
+            console.dir(
+                articolo,
+                { depth: null }
+            );
+
+            // =====================================================
+            // IL REMOVE VUOLE IL ROW ID
+            // =====================================================
+
+            const rowId =
+                articolo.rowId;
+
+            const productId =
+                articolo.productId;
+
+            if (!rowId) {
+
+                console.error(
+                    "ROW ID MANCANTE:"
+                );
+
+                console.dir(
+                    articolo,
+                    { depth: null }
+                );
+
+                errori.push({
+
+                    productId:
+                        productId || null,
+
+                    rowId: null,
+
+                    errore:
+                        "Row ID mancante"
+
+                });
+
+                break;
+
+            }
+
+            console.log(
+                "PRODUCT ID:",
                 productId
             );
 
+            console.log(
+                "ROW ID DA RIMUOVERE:",
+                rowId
+            );
+
+            // =====================================================
+            // RIMOZIONE
+            // =====================================================
+
             const risultato =
                 await rimuoviProdottoCarrelloTiscali(
-                    productId
+                    rowId
                 );
 
             console.log(
-                "RISULTATO RIMOZIONE:",
-                risultato
+                "RISULTATO RIMOZIONE:"
             );
+
+            console.dir(
+                risultato,
+                { depth: null }
+            );
+
+            // =====================================================
+            // RIMOZIONE RIUSCITA
+            // =====================================================
 
             if (
                 risultato.successo &&
@@ -2485,45 +2426,67 @@ while ((match = regexRowId.exec(html)) !== null) {
                 rimossi.push({
 
                     productId:
-                        productId,
+                        productId || null,
 
                     rowId:
-                        risultato.rowId || null,
+                        rowId,
 
                     quantita:
-                        risultato.quantitaPrima || null
+                        articolo.quantita || null
 
                 });
 
-            } else {
+                console.log(
+                    "PRODOTTO RIMOSSO CORRETTAMENTE:"
+                );
 
-                errori.push({
+                console.log(
+                    "PRODUCT ID:",
+                    productId
+                );
 
-                    productId:
-                        productId,
+                console.log(
+                    "ROW ID:",
+                    rowId
+                );
 
-                    errore:
-                        risultato.errore ||
-                        risultato.messaggio ||
-                        "Impossibile rimuovere il prodotto"
+                // Continuiamo con il prossimo prodotto
 
-                });
-
-                /*
-                 * Evitiamo di continuare all'infinito
-                 * se Tiscali non permette di rimuovere
-                 * questo prodotto.
-                 */
-                break;
+                continue;
 
             }
 
+            // =====================================================
+            // ERRORE
+            // =====================================================
+
+            errori.push({
+
+                productId:
+                    productId || null,
+
+                rowId:
+                    rowId,
+
+                errore:
+                    risultato.errore ||
+                    risultato.messaggio ||
+                    "Impossibile rimuovere il prodotto"
+
+            });
+
+            console.error(
+                "IMPOSSIBILE RIMUOVERE IL PRODOTTO"
+            );
+
+            break;
+
         }
 
-        /*
-         * Se arriviamo qui abbiamo raggiunto
-         * il limite di sicurezza.
-         */
+        // =====================================================
+        // LIMITE TENTATIVI
+        // =====================================================
+
         return {
 
             successo:
@@ -2534,11 +2497,9 @@ while ((match = regexRowId.exec(html)) !== null) {
             numeroRimossi:
                 rimossi.length,
 
-            rimossi:
-                rimossi,
+            rimossi,
 
-            errori:
-                errori,
+            errori,
 
             errore:
                 "Raggiunto il limite massimo di tentativi"
@@ -2548,11 +2509,20 @@ while ((match = regexRowId.exec(html)) !== null) {
     } catch (errore) {
 
         console.error(
+            "================================="
+        );
+
+        console.error(
             "=== ERRORE SVUOTAMENTO CARRELLO ==="
         );
 
         console.error(
-            errore
+            "MESSAGGIO:",
+            errore.message
+        );
+
+        console.error(
+            "================================="
         );
 
         return {
