@@ -1113,6 +1113,29 @@ async function inviaATiscali() {
 window.inviaATiscali = inviaATiscali;
 
 
+function esciAccount() {
+
+    const conferma = confirm(
+        "Vuoi uscire dall'account e cambiare punto vendita?"
+    );
+
+    if (!conferma) {
+        return;
+    }
+
+    localStorage.removeItem("puntoVendita");
+    localStorage.removeItem("puntoVenditaId");
+
+    document.getElementById(
+        "app"
+    ).style.display = "none";
+
+    document.getElementById(
+        "schermataLogin"
+    ).style.display = "block";
+
+}
+
 // =====================================================
 // AVVIO APP
 // =====================================================
