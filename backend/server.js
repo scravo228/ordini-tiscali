@@ -12,6 +12,11 @@ const ordiniDatabase = require("./ordiniDatabase");
 
 
 
+
+
+
+
+
 const puntiVendita = require("./puntiVendita");
 const prodotti = require("./prodotti");
 const listaPuntiVendita = require("./listaPuntiVendita");
@@ -28,6 +33,78 @@ const upload = multer({
 
 app.use(cors());
 app.use(express.json());
+
+
+
+
+
+
+
+
+
+app.post("/admin/ripristina-admin", (req, res) => {
+
+    ordiniDatabase.verificaLogin(
+        "ADMIN",
+        "1234",
+        (err, amministratore) => {
+
+            if (err) {
+
+                return res.status(500).json({
+                    successo: false,
+                    fase: "controllo",
+                    errore: err.message
+                });
+
+            }
+
+            if (amministratore) {
+
+                return res.json({
+                    successo: true,
+                    messaggio: "Account ADMIN già presente",
+                    amministratoreId: amministratore.id
+                });
+
+            }
+
+            ordiniDatabase.creaAmministratore(
+                "ADMIN",
+                "1234",
+                (err, id) => {
+
+                    if (err) {
+
+                        return res.status(500).json({
+                            successo: false,
+                            fase: "creazione",
+                            errore: err.message
+                        });
+
+                    }
+
+                    return res.json({
+                        successo: true,
+                        messaggio: "Account ADMIN creato",
+                        amministratoreId: id
+                    });
+
+                }
+            );
+
+        }
+    );
+
+});
+
+
+
+
+
+
+
+
 
 
 // =====================================================
