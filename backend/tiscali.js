@@ -1531,67 +1531,66 @@ async function verificaSessioneTiscali() {
         console.log("=================================");
 
         const risposta = await tiscali.get(
-            "https://www.tiscaliformaggi.com/it/catalogo/carrello"
+            "https://www.tiscaliformaggi.com/it/catalogo/carrello",
+            {
+                headers: {
+                    "Referer":
+                        "https://www.tiscaliformaggi.com/it/catalogo/carrello"
+                },
+                validateStatus: () => true
+            }
         );
 
         const html = risposta.data;
 
-        console.log("STATUS:", risposta.status);
-        console.log("LUNGHEZZA HTML:", html.length);
-        console.log("URL CARRELLO:", risposta.request?.res?.responseUrl);
+        console.log("STATUS CARRELLO:", risposta.status);
 
-console.log("CARRELLO CONTIENE FORM. GRANA PADANO:",
-    html.includes("FORM. GRANA PADANO")
-);
+        console.log(
+            "URL CARRELLO:",
+            risposta.request?.res?.responseUrl || "non disponibile"
+        );
 
-console.log("CARRELLO CONTIENE CODICE 2025:",
-    html.includes("2025")
-);
+        console.log(
+            "LUNGHEZZA HTML:",
+            typeof html === "string" ? html.length : 0
+        );
 
-console.log("CARRELLO CONTIENE VINO SANGIOVESE:",
-    html.includes("VINO SANGIOVESE")
-);
+        // =====================================================
+        // VERIFICA CHE SIAMO ANCORA AUTENTICATI
+        // =====================================================
 
-console.log("PRIMI 2000 CARATTERI DEL CARRELLO:");
-console.log(html.substring(0, 2000));
-console.log("=================================");
-console.log("RICERCA HTML FORM. GRANA PADANO");
-console.log("=================================");
+        if (
+            typeof html === "string" &&
+            (
+                html.includes("Username/Password errate") ||
+                html.includes("<title>Accesso - Tiscali Formaggi</title>")
+            )
+        ) {
 
-console.log("=================================");
-console.log("RICERCA TUTTE LE OCCORRENZE GRANA");
-console.log("=================================");
+            console.log("⚠️ ATTENZIONE: TISCALI STA MOSTRANDO LA PAGINA LOGIN");
 
-let posizione = 0;
-let numeroOccorrenza = 0;
+            return {
 
-while ((posizione = html.indexOf("FORM. GRANA PADANO", posizione)) !== -1) {
+                successo: false,
 
-    numeroOccorrenza++;
+                autenticato: false,
 
-    console.log(
-        "OCCORRENZA GRANA:",
-        numeroOccorrenza,
-        "POSIZIONE:",
-        posizione
-    );
+                status: risposta.status,
 
-    console.log(
-    html.substring(
-        Math.max(0, posizione - 3000),
-        posizione + 5000
-    )
-);
+                errore:
+                    "La sessione Tiscali non risulta autenticata",
 
-    posizione += "FORM. GRANA PADANO".length;
-}
+                numeroArticoli: 0,
 
-console.log(
-    "TOTALE OCCORRENZE GRANA:",
-    numeroOccorrenza
-);
+                articoli: []
 
-console.log("=================================");
+            };
+
+        }
+
+        // =====================================================
+        // ANALISI HTML
+        // =====================================================
 
         const $ = cheerio.load(html);
 
@@ -1620,58 +1619,82 @@ console.log("=================================");
         );
 
         console.log(
-            "5863 NELL'HTML:",
-            html.includes("5863")
+            "Z0005 NELL'HTML:",
+            html.includes("Z0005")
         );
 
         console.log(
-            "5710 NELL'HTML:",
-            html.includes("5710")
+            "PRODUCT ID 8549 NELL'HTML:",
+            html.includes("8549")
         );
 
         console.log(
-            "VINO SANGIOVESE NELL'HTML:",
+            "FORM. GRANA PADANO:",
+            html.includes("FORM. GRANA PADANO")
+        );
+
+        console.log(
+            "VINO SANGIOVESE:",
             html.includes("VINO SANGIOVESE")
         );
 
+        // =====================================================
+        // LETTURA MINICART
+        // =====================================================
 
         const articoli = [];
 
-$(".ecMinicartComp-latestItemsOnCart > .d-flex").each(
-    (i, elemento) => {
+        $(".ecMinicartComp-latestItemsOnCart > .d-flex").each(
+            (i, elemento) => {
 
-        const titolo =
-            $(elemento)
-                .find(".col-title a")
-                .attr("title");
+                const titolo =
+                    $(elemento)
+                        .find(".col-title a")
+                        .attr("title") ||
+                    $(elemento)
+                        .find(".col-title a")
+                        .text()
+                        .trim() ||
+                    null;
 
-        const quantita =
-            $(elemento)
-                .find(".ecMinicartComp-itemQty")
-                .text()
-                .trim();
+                const quantita =
+                    $(elemento)
+                        .find(".ecMinicartComp-itemQty")
+                        .text()
+                        .trim() ||
+                    null;
 
-        const rowId =
-            $(elemento)
-                .find("button[data-rowid]")
-                .attr("data-rowid");
+                const rowId =
+                    $(elemento)
+                        .find("button[data-rowid]")
+                        .attr("data-rowid") ||
+                    null;
 
-        if (titolo && rowId) {
+                const productId =
+                    $(elemento)
+                        .find("[data-productid]")
+                        .attr("data-productid") ||
+                    null;
 
-            articoli.push({
+                if (titolo || rowId || productId) {
 
-                titolo: titolo,
+                    articoli.push({
 
-                quantita: quantita || null,
+                        titolo,
 
-                rowId: rowId || null
+                        quantita,
 
-            });
+                        rowId,
 
-        }
+                        productId
 
-    }
-);
+                    });
+
+                }
+
+            }
+        );
+
         console.log("=================================");
         console.log(
             "ARTICOLI TROVATI:",
@@ -1684,15 +1707,25 @@ $(".ecMinicartComp-latestItemsOnCart > .d-flex").each(
             { depth: null }
         );
 
+        // =====================================================
+        // RITORNO RISULTATO
+        // =====================================================
+
         return {
 
             successo: true,
 
+            autenticato: true,
+
             status: risposta.status,
 
-            lunghezzaHTML: html.length,
+            lunghezzaHTML:
+                typeof html === "string"
+                    ? html.length
+                    : 0,
 
-            numeroArticoli: articoli.length,
+            numeroArticoli:
+                articoli.length,
 
             articoli,
 
@@ -1703,15 +1736,33 @@ $(".ecMinicartComp-latestItemsOnCart > .d-flex").each(
     } catch (errore) {
 
         console.error(
-            "ERRORE LETTURA CARRELLO:",
+            "================================="
+        );
+
+        console.error(
+            "ERRORE LETTURA CARRELLO TISCALI"
+        );
+
+        console.error(
+            "MESSAGGIO:",
             errore.message
+        );
+
+        console.error(
+            "================================="
         );
 
         return {
 
             successo: false,
 
-            errore: errore.message
+            autenticato: false,
+
+            errore: errore.message,
+
+            numeroArticoli: 0,
+
+            articoli: []
 
         };
 
