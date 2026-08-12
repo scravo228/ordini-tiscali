@@ -1481,6 +1481,155 @@ app.post("/ordine/test-login-tiscali", async (req, res) => {
 
 });
 
+
+
+// =====================================================
+// TEST LETTURA CARRELLO TISCALI
+// =====================================================
+
+app.post("/ordine/test-carrello-tiscali", async (req, res) => {
+
+    try {
+
+        const { puntoVenditaId } = req.body;
+
+        if (!puntoVenditaId) {
+
+            return res.status(400).json({
+                successo: false,
+                errore: "puntoVenditaId mancante"
+            });
+
+        }
+
+        // ---------------------------------------------
+        // 1. RECUPERA IL PUNTO VENDITA
+        // ---------------------------------------------
+
+        const puntoVendita =
+            await new Promise((resolve, reject) => {
+
+                ordiniDatabase.getPuntoVenditaById(
+                    puntoVenditaId,
+                    (err, punto) => {
+
+                        if (err) {
+                            reject(err);
+                            return;
+                        }
+
+                        resolve(punto);
+                    }
+                );
+
+            });
+
+        if (!puntoVendita) {
+
+            return res.status(404).json({
+                successo: false,
+                errore: "Punto vendita non trovato"
+            });
+
+        }
+
+        // ---------------------------------------------
+        // 2. CONTROLLA CREDENZIALI
+        // ---------------------------------------------
+
+        if (
+            !puntoVendita.tiscaliUsername ||
+            !puntoVendita.tiscaliPassword
+        ) {
+
+            return res.status(400).json({
+                successo: false,
+                errore: "Credenziali Tiscali non configurate"
+            });
+
+        }
+
+        console.log("=================================");
+        console.log("TEST LETTURA CARRELLO TISCALI");
+        console.log(
+            "PUNTO VENDITA:",
+            puntoVenditaId
+        );
+        console.log("=================================");
+
+        // ---------------------------------------------
+        // 3. LOGIN
+        // ---------------------------------------------
+
+        const login =
+            await tiscali.loginTiscali(
+                puntoVendita.tiscaliUsername,
+                puntoVendita.tiscaliPassword
+            );
+
+        if (!login.successo) {
+
+            return res.status(500).json({
+
+                successo: false,
+
+                fase: "login",
+
+                login
+
+            });
+
+        }
+
+        console.log("LOGIN TISCALI OK");
+
+        // ---------------------------------------------
+        // 4. LEGGE IL CARRELLO
+        // ---------------------------------------------
+
+        const carrello =
+            await tiscali.leggiCarrelloTiscali();
+
+        console.log("CARRELLO LETTO");
+
+        // ---------------------------------------------
+        // 5. RISPOSTA
+        // ---------------------------------------------
+
+        return res.json({
+
+            successo: true,
+
+            puntoVenditaId,
+
+            login: {
+                successo: true,
+                status: login.status || null
+            },
+
+            carrello
+
+        });
+
+    } catch (errore) {
+
+        console.error(
+            "ERRORE TEST CARRELLO TISCALI:",
+            errore
+        );
+
+        return res.status(500).json({
+
+            successo: false,
+
+            errore: errore.message
+
+        });
+
+    }
+
+});
+
 app.post("/ordine/invia-tiscali", async (req, res) => {
 
     try {
