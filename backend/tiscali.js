@@ -3,18 +3,30 @@ const axios = require("axios");
 const { CookieJar } = require("tough-cookie");
 const { wrapper } = require("axios-cookiejar-support");
 
-const jar = new CookieJar();
+let jar = null;
+let tiscali = null;
 
-const tiscali = wrapper(
-    axios.create({
-        jar,
-        withCredentials: true,
-        headers: {
-            "User-Agent":
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36"
-        }
-    })
-);
+function creaSessioneTiscali() {
+
+    jar = new CookieJar();
+
+    tiscali = wrapper(
+        axios.create({
+            jar,
+            withCredentials: true,
+            headers: {
+                "User-Agent":
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36"
+            }
+        })
+    );
+
+    console.log("=================================");
+    console.log("NUOVA SESSIONE TISCALI CREATA");
+    console.log("=================================");
+
+    return tiscali;
+}
 
 async function testaTiscali() {
 
@@ -145,6 +157,9 @@ console.log(
 async function loginTiscali(username, password) {
 
     try {
+        if (!tiscali) {
+    creaSessioneTiscali();
+}
 
         console.log("=== INIZIO LOGIN TISCALI ===");
 
@@ -1102,41 +1117,6 @@ async function aggiungiAlCarrelloTiscali(productId, quantita) {
             "================================="
         );
 
-        // ==============================
-        // VERIFICA CARRELLO
-        // ==============================
-
-        console.log(
-            "VERIFICA CARRELLO DOPO CART/ADD"
-        );
-
-        let verificaCarrello = null;
-
-        try {
-
-            verificaCarrello =
-                await leggiCarrelloTiscali();
-
-            console.log(
-                "RISULTATO VERIFICA:"
-            );
-
-            console.dir(
-                verificaCarrello,
-                { depth: null }
-            );
-
-        } catch (erroreVerifica) {
-
-            console.error(
-                "ERRORE VERIFICA CARRELLO:"
-            );
-
-            console.error(
-                erroreVerifica.message
-            );
-
-        }
 
         console.log(
             "================================="
@@ -1179,8 +1159,7 @@ async function aggiungiAlCarrelloTiscali(productId, quantita) {
             risposta:
                 risposta.data,
 
-            verificaCarrello:
-                verificaCarrello
+            
 
         };
 
@@ -1937,20 +1916,14 @@ async function rimuoviProdottoCarrelloTiscali(rowId) {
         if (!rowId) {
 
             return {
-
                 successo: false,
-
                 rimosso: false,
-
-                errore:
-                    "Row ID mancante"
-
+                errore: "Row ID mancante"
             };
 
         }
 
-        const rowIdString =
-            String(rowId);
+        const rowIdString = String(rowId);
 
         // =====================================================
         // 1. PAGINA CARRELLO
@@ -1965,28 +1938,66 @@ async function rimuoviProdottoCarrelloTiscali(rowId) {
                 "https://www.tiscaliformaggi.com/it/catalogo/carrello",
                 {
                     headers: {
-
                         "Referer":
                             "https://www.tiscaliformaggi.com/it/catalogo/carrello"
-
                     },
 
                     validateStatus:
                         () => true
-
                 }
             );
 
-        const html =
-            rispostaCarrello.data;
+        const html = rispostaCarrello.data;
 
         console.log(
             "STATUS CARRELLO:",
             rispostaCarrello.status
         );
 
+        console.log(
+            "TOKEN NELLA PAGINA:",
+            typeof html === "string" &&
+            html.includes("__RequestVerificationToken")
+        );
+
+        console.log(
+            "NUMERO OCCORRENZE TOKEN:",
+            typeof html === "string"
+                ? (html.match(/__RequestVerificationToken/g) || []).length
+                : 0
+        );
+
         // =====================================================
-        // 2. TOKEN CSRF
+        // 2. DEBUG TOKEN
+        // =====================================================
+
+        const posizioneToken =
+            typeof html === "string"
+                ? html.indexOf("__RequestVerificationToken")
+                : -1;
+
+        console.log(
+            "POSIZIONE TOKEN:",
+            posizioneToken
+        );
+
+        if (posizioneToken !== -1) {
+
+            console.log(
+                "HTML INTORNO AL TOKEN:"
+            );
+
+            console.log(
+                html.substring(
+                    Math.max(0, posizioneToken - 500),
+                    posizioneToken + 1000
+                )
+            );
+
+        }
+
+        // =====================================================
+        // 3. TOKEN CSRF
         // =====================================================
 
         const $ =
@@ -2001,8 +2012,7 @@ async function rimuoviProdottoCarrelloTiscali(rowId) {
                     if (!token) {
 
                         token =
-                            $(elemento)
-                                .attr("value");
+                            $(elemento).attr("value");
 
                     }
 
@@ -2028,7 +2038,7 @@ async function rimuoviProdottoCarrelloTiscali(rowId) {
         );
 
         // =====================================================
-        // 3. PREPARA DATI REMOVE
+        // 4. PREPARA DATI REMOVE
         // =====================================================
 
         const dati =
@@ -2067,8 +2077,16 @@ async function rimuoviProdottoCarrelloTiscali(rowId) {
             "0"
         );
 
+        console.log(
+            "DATI POST:",
+            dati.toString().replace(
+                /__RequestVerificationToken=[^&]+/,
+                "__RequestVerificationToken=TOKEN"
+            )
+        );
+
         // =====================================================
-        // 4. REMOVE
+        // 5. REMOVE
         // =====================================================
 
         const rispostaRemove =
@@ -2079,7 +2097,6 @@ async function rimuoviProdottoCarrelloTiscali(rowId) {
                 dati.toString(),
 
                 {
-
                     headers: {
 
                         "Content-Type":
@@ -2118,14 +2135,13 @@ async function rimuoviProdottoCarrelloTiscali(rowId) {
         );
 
         // =====================================================
-        // 5. ANALISI RISPOSTA
+        // 6. ANALISI RISPOSTA
         // =====================================================
 
         let risultatoRemove;
 
         if (
-            typeof rispostaRemove.data ===
-            "string"
+            typeof rispostaRemove.data === "string"
         ) {
 
             try {
@@ -2162,7 +2178,7 @@ async function rimuoviProdottoCarrelloTiscali(rowId) {
         );
 
         // =====================================================
-        // 6. VERIFICA CARRELLO
+        // 7. VERIFICA CARRELLO
         // =====================================================
 
         const verifica =
@@ -2178,7 +2194,7 @@ async function rimuoviProdottoCarrelloTiscali(rowId) {
         );
 
         // =====================================================
-        // 7. RISULTATO
+        // 8. RISULTATO
         // =====================================================
 
         return {
@@ -2235,315 +2251,19 @@ async function rimuoviProdottoCarrelloTiscali(rowId) {
 }
 async function svuotaCarrelloTiscali() {
 
-    try {
-
-        console.log("=================================");
-        console.log("=== SVUOTAMENTO CARRELLO TISCALI ===");
-        console.log("=================================");
-
-        let rimossi = [];
-        let errori = [];
-
-        const MAX_TENTATIVI = 100;
-
-        for (
-            let tentativo = 1;
-            tentativo <= MAX_TENTATIVI;
-            tentativo++
-        ) {
-
-            console.log(
-                `\n--- LETTURA CARRELLO ${tentativo} ---`
-            );
-
-            // =====================================================
-            // LEGGIAMO IL CARRELLO CON LA FUNZIONE GIÀ CORRETTA
-            // =====================================================
-
-            const carrello =
-                await contaArticoliCarrelloTiscali();
-
-            console.log(
-                "RISULTATO LETTURA CARRELLO:"
-            );
-
-            console.dir(
-                carrello,
-                { depth: null }
-            );
-
-            if (!carrello.successo) {
-
-                return {
-
-                    successo: false,
-
-                    carrelloVuoto: false,
-
-                    numeroRimossi:
-                        rimossi.length,
-
-                    rimossi,
-
-                    errori,
-
-                    errore:
-                        carrello.errore ||
-                        "Impossibile leggere il carrello"
-
-                };
-
-            }
-
-            // =====================================================
-            // CARRELLO VUOTO
-            // =====================================================
-
-            if (
-                !carrello.articoli ||
-                carrello.articoli.length === 0
-            ) {
-
-                console.log(
-                    "================================="
-                );
-
-                console.log(
-                    "=== CARRELLO VUOTO ==="
-                );
-
-                console.log(
-                    "================================="
-                );
-
-                return {
-
-                    successo: true,
-
-                    carrelloVuoto: true,
-
-                    numeroRimossi:
-                        rimossi.length,
-
-                    rimossi,
-
-                    errori
-
-                };
-
-            }
-
-            // =====================================================
-            // PRENDIAMO IL PRIMO ARTICOLO
-            // =====================================================
-
-            const articolo =
-                carrello.articoli[0];
-
-            console.log(
-                "ARTICOLO DA RIMUOVERE:"
-            );
-
-            console.dir(
-                articolo,
-                { depth: null }
-            );
-
-            // =====================================================
-            // IL REMOVE VUOLE IL ROW ID
-            // =====================================================
-
-            const rowId =
-                articolo.rowId;
-
-            const productId =
-                articolo.productId;
-
-            if (!rowId) {
-
-                console.error(
-                    "ROW ID MANCANTE:"
-                );
-
-                console.dir(
-                    articolo,
-                    { depth: null }
-                );
-
-                errori.push({
-
-                    productId:
-                        productId || null,
-
-                    rowId: null,
-
-                    errore:
-                        "Row ID mancante"
-
-                });
-
-                break;
-
-            }
-
-            console.log(
-                "PRODUCT ID:",
-                productId
-            );
-
-            console.log(
-                "ROW ID DA RIMUOVERE:",
-                rowId
-            );
-
-            // =====================================================
-            // RIMOZIONE
-            // =====================================================
-
-            const risultato =
-                await rimuoviProdottoCarrelloTiscali(
-                    rowId
-                );
-
-            console.log(
-                "RISULTATO RIMOZIONE:"
-            );
-
-            console.dir(
-                risultato,
-                { depth: null }
-            );
-
-            // =====================================================
-            // RIMOZIONE RIUSCITA
-            // =====================================================
-
-            if (
-                risultato.successo &&
-                risultato.rimosso
-            ) {
-
-                rimossi.push({
-
-                    productId:
-                        productId || null,
-
-                    rowId:
-                        rowId,
-
-                    quantita:
-                        articolo.quantita || null
-
-                });
-
-                console.log(
-                    "PRODOTTO RIMOSSO CORRETTAMENTE:"
-                );
-
-                console.log(
-                    "PRODUCT ID:",
-                    productId
-                );
-
-                console.log(
-                    "ROW ID:",
-                    rowId
-                );
-
-                // Continuiamo con il prossimo prodotto
-
-                continue;
-
-            }
-
-            // =====================================================
-            // ERRORE
-            // =====================================================
-
-            errori.push({
-
-                productId:
-                    productId || null,
-
-                rowId:
-                    rowId,
-
-                errore:
-                    risultato.errore ||
-                    risultato.messaggio ||
-                    "Impossibile rimuovere il prodotto"
-
-            });
-
-            console.error(
-                "IMPOSSIBILE RIMUOVERE IL PRODOTTO"
-            );
-
-            break;
-
-        }
-
-        // =====================================================
-        // LIMITE TENTATIVI
-        // =====================================================
-
-        return {
-
-            successo:
-                errori.length === 0,
-
-            carrelloVuoto: false,
-
-            numeroRimossi:
-                rimossi.length,
-
-            rimossi,
-
-            errori,
-
-            errore:
-                "Raggiunto il limite massimo di tentativi"
-
-        };
-
-    } catch (errore) {
-
-        console.error(
-            "================================="
-        );
-
-        console.error(
-            "=== ERRORE SVUOTAMENTO CARRELLO ==="
-        );
-
-        console.error(
-            "MESSAGGIO:",
-            errore.message
-        );
-
-        console.error(
-            "================================="
-        );
-
-        return {
-
-            successo: false,
-
-            carrelloVuoto: false,
-
-            numeroRimossi: 0,
-
-            rimossi: [],
-
-            errori: [],
-
-            errore:
-                errore.message
-
-        };
-
-    }
-
+    console.log("=================================");
+    console.log("SVUOTAMENTO CARRELLO DISATTIVATO");
+    console.log("IL CARRELLO TISCALI NON VERRA' CANCELLATO");
+    console.log("=================================");
+
+    return {
+        successo: true,
+        carrelloVuoto: true,
+        numeroRimossi: 0,
+        rimossi: [],
+        errori: [],
+        disattivato: true
+    };
 }
 async function contaArticoliCarrelloTiscali() {
 
