@@ -788,6 +788,12 @@ async function azzeraOrdine() {
 
         mostraProdotti();
 
+        ordineId = null;
+
+console.log(
+    "Ordine azzerato e ordineId resettato"
+);
+
 
         console.log(
             "Ordine azzerato:",
@@ -1291,6 +1297,8 @@ async function effettuaLogin() {
             "puntoVenditaId",
             dati.puntoVenditaId
         );
+        puntoVenditaId =
+    Number(dati.puntoVenditaId);
         console.log(
     "ID PUNTO VENDITA SALVATO:",
     dati.puntoVenditaId
@@ -1332,14 +1340,22 @@ localStorage.setItem(
 
 if (dati.ruolo === "amministratore") {
 
+    // salvo l'ID dell'amministratore
+    localStorage.setItem(
+        "amministratoreId",
+        dati.amministratoreId
+    );
+
+    console.log(
+        "ID AMMINISTRATORE SALVATO:",
+        dati.amministratoreId
+    );
 
     document.getElementById(
         "app"
     ).style.display = "none";
 
-
     mostraAdmin();
-
 
 } else {
 
@@ -1616,9 +1632,10 @@ async function creaNuovoPuntoVendita() {
 
 
     const amministratoreId =
-        localStorage.getItem(
-            "puntoVenditaId"
-        );
+    localStorage.getItem(
+        "amministratoreId"
+    );
+        
 
 
 
