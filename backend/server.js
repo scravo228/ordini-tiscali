@@ -2208,20 +2208,76 @@ app.post(
 
 
                         const errori =
-                            risultati.filter(
-                                p =>
-                                    !p.aggiunto &&
-                                    p.modalitaTest !== true
-                            );
+    risultati.filter(
+        p =>
+            !p.aggiunto &&
+            p.trovato === true &&
+            p.modalitaTest !== true
+    );
+
+const prodottiNonTrovati =
+    risultati.filter(
+        p =>
+            p.trovato === false
+    );
 
 
-                        // -------------------------------------------------
-                        // 5. CHIUDE ORDINE DB SOLO SE TUTTO OK
-                        // -------------------------------------------------
+// -------------------------------------------------
+// CONTROLLO ORDINE COMPLETATO
+// -------------------------------------------------
 
-                        if (
-                            errori.length === 0
-                        ) {
+const ordineCompletato =
+    errori.length === 0 &&
+    prodottiNonTrovati.length === 0;
+
+
+console.log(
+    "================================="
+);
+
+console.log(
+    "VERIFICA COMPLETAMENTO ORDINE"
+);
+
+console.log(
+    "PRODOTTI TOTALI:",
+    risultati.length
+);
+
+console.log(
+    "PRODOTTI AGGIUNTI:",
+    risultati.filter(
+        p => p.aggiunto
+    ).length
+);
+
+console.log(
+    "PRODOTTI CON ERRORE:",
+    errori.length
+);
+
+console.log(
+    "PRODOTTI NON TROVATI:",
+    prodottiNonTrovati.length
+);
+
+console.log(
+    "ORDINE COMPLETATO:",
+    ordineCompletato
+);
+
+console.log(
+    "================================="
+);
+
+
+// -------------------------------------------------
+// 5. CHIUDE ORDINE DB SOLO SE TUTTO OK
+// -------------------------------------------------
+
+if (
+    ordineCompletato
+) {
 
                             await new Promise(
                                 (resolve) => {
@@ -2265,8 +2321,8 @@ app.post(
 
                         return res.json({
 
-                            successo:
-                                errori.length === 0,
+    successo:
+        ordineCompletato,
 
                             ordineId:
                                 ordine.ordineId,
@@ -2283,7 +2339,12 @@ app.post(
                             prodottiConErrore:
                                 errori.length,
 
+                                prodottiNonTrovati:
+    prodottiNonTrovati.length,
+
                             risultati
+
+                            
 
                         });
 
