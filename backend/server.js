@@ -24,71 +24,7 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 
-// =====================================================
-// TEST CONNESSIONE SUPABASE
-// =====================================================
 
-app.get("/test-supabase", async (req, res) => {
-
-    try {
-
-        const supabase = require("./database");
-
-        const { data, error } =
-            await supabase
-                .from("punti_vendita")
-                .select("id, nome, codice, attivo")
-                .limit(10);
-
-        if (error) {
-
-            console.error(
-                "ERRORE TEST SUPABASE:",
-                error
-            );
-
-            return res.status(500).json({
-
-                successo: false,
-
-                errore:
-                    error.message
-
-            });
-
-        }
-
-        return res.json({
-
-            successo: true,
-
-            numeroPuntiVendita:
-                data.length,
-
-            puntiVendita:
-                data
-
-        });
-
-    } catch (errore) {
-
-        console.error(
-            "ERRORE TEST SUPABASE:",
-            errore
-        );
-
-        return res.status(500).json({
-
-            successo: false,
-
-            errore:
-                errore.message
-
-        });
-
-    }
-
-});
 
 
 // =====================================================
@@ -3103,7 +3039,7 @@ app.get(
                     successo: true,
 
                     puntoVenditaId:
-                        punto.Id,
+                        punto.id,
 
                     nome:
                         punto.nome,
