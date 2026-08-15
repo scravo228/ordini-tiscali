@@ -1,114 +1,22 @@
-
-require("dotenv").config();
-
-const { createClient } = require("@supabase/supabase-js");
-
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-if (!supabaseUrl) {
-    throw new Error(
-        "SUPABASE_URL non configurata nelle variabili d'ambiente"
-    );
-}
-
-if (!supabaseKey) {
-    throw new Error(
-        "SUPABASE_SERVICE_ROLE_KEY non configurata nelle variabili d'ambiente"
-    );
-}
-
-const supabase = createClient(
-    supabaseUrl,
-    supabaseKey,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false
-        }
-    }
-);
-
-console.log("ordiniDatabase: Supabase configurato");
+const supabase = require("./database");
 
 
 // =====================================================
-// ORDINI
+// CREA ORDINE
 // =====================================================
 
-async function creaOrdine(
-    puntoVenditaId,
-    callback
-) {
+function creaOrdine(puntoVenditaId, callback) {
 
-    try {
+    supabase
+        .from("ordini")
+        .insert({
+            puntoVenditaId: puntoVenditaId,
+            stato: "APERTO"
+        })
+        .select("id")
+        .single()
 
-        const { data, error } =
-            await supabase
-                .from("ordini")
-                .insert({
-                    puntoVenditaId: puntoVenditaId,
-                    stato: "APERTO"
-                })
-                .select("id")
-                .single();
-
-        if (error) {
-            callback(error);
-            return;
-        }
-
-        callback(null, data.id);
-
-    } catch (errore) {
-
-        callback(errore);
-
-    }
-
-}
-
-
-// =====================================================
-// AGGIUNGI / MODIFICA PRODOTTO ORDINE
-// =====================================================
-
-async function aggiungiProdottoOrdine(
-    ordineId,
-    codice,
-    descrizione,
-    quantita,
-    callback
-) {
-
-    try {
-
-        const { data: prodotto, error: erroreRicerca } =
-            await supabase
-                .from("dettagli_ordine")
-                .select("*")
-                .eq("ordineId", ordineId)
-                .eq("codice", codice)
-                .maybeSingle();
-
-        if (erroreRicerca) {
-            callback(erroreRicerca);
-            return;
-        }
-
-
-        if (prodotto) {
-
-            const { data, error } =
-                await supabase
-                    .from("dettagli_ordine")
-                    .update({
-                        quantita: quantita,
-                        descrizione: descrizione
-                    })
-                    .eq("id", prodotto.id)
-                    .select("id")
-                    .single();
+        .then(({ data, error }) => {
 
             if (error) {
                 callback(error);
@@ -116,324 +24,10 @@ async function aggiungiProdottoOrdine(
             }
 
             callback(null, data.id);
-            return;
-        }
 
+        })
 
-        const { data, error } =
-            await supabase
-                .from("dettagli_ordine")
-                .insert({
-                    ordineId: ordineId,
-                    codice: codice,
-                    descrizione: descrizione,
-                    quantita: quantita
-                })
-                .select("id")
-                .single();
-
-        if (error) {
-            callback(error);
-            return;
-        }
-
-        callback(null, data.id);
-
-    } catch (errore) {
-
-        callback(errore);
-
-    }
-
-}
-
-
-// =====================================================
-// ORDINE APERTO
-// =====================================================
-
-async function getOrdineAperto(
-    puntoVenditaId,
-    callback
-) {
-
-    try {
-
-        const { data: ordine, error: erroreOrdine } =
-            await supabase
-                .from("ordini")
-                .select("*")
-                .eq("puntoVenditaId", puntoVenditaId)
-                .eq("stato", "APERTO")
-                .order("id", {
-                    ascending: false
-                })
-                .limit(1)
-                .maybeSingle();
-
-        if (erroreOrdine) {
-            callback(erroreOrdine);
-            return;
-        }
-
-        if (!ordine) {
-            callback(null, null);
-            return;
-        }
-
-
-        const { data: prodotti, error: erroreProdotti } =
-            await supabase
-                .from("dettagli_ordine")
-                .select("codice, descrizione, quantita")
-                .eq("ordineId", ordine.id);
-
-        if (erroreProdotti) {
-            callback(erroreProdotti);
-            return;
-        }
-
-
-        callback(null, {
-
-            ordineId:
-                ordine.id,
-
-            puntoVenditaId:
-                ordine.puntoVenditaId,
-
-            stato:
-                ordine.stato,
-
-            prodotti:
-                prodotti || []
-
-        });
-
-    } catch (errore) {
-
-        callback(errore);
-
-    }
-
-}
-
-
-// =====================================================
-// MODIFICA QUANTITÀ
-// =====================================================
-
-async function modificaQuantitaOrdine(
-    ordineId,
-    codice,
-    quantita,
-    callback
-) {
-
-    try {
-
-        const { data, error } =
-            await supabase
-                .from("dettagli_ordine")
-                .update({
-                    quantita: quantita
-                })
-                .eq("ordineId", ordineId)
-                .eq("codice", codice)
-                .select("id");
-
-        if (error) {
-            callback(error);
-            return;
-        }
-
-        callback(
-            null,
-            data ? data.length : 0
-        );
-
-    } catch (errore) {
-
-        callback(errore);
-
-    }
-
-}
-
-
-// =====================================================
-// ELIMINA PRODOTTO
-// =====================================================
-
-async function eliminaProdottoOrdine(
-    ordineId,
-    codice,
-    callback
-) {
-
-    try {
-
-        const { data, error } =
-            await supabase
-                .from("dettagli_ordine")
-                .delete()
-                .eq("ordineId", ordineId)
-                .eq("codice", codice)
-                .select("id");
-
-        if (error) {
-            callback(error);
-            return;
-        }
-
-        callback(
-            null,
-            data ? data.length : 0
-        );
-
-    } catch (errore) {
-
-        callback(errore);
-
-    }
-
-}
-
-
-// =====================================================
-// AZZERA ORDINE DATABASE
-// =====================================================
-
-async function azzeraOrdineDatabase(
-    ordineId,
-    callback
-) {
-
-    try {
-
-        const { data, error } =
-            await supabase
-                .from("dettagli_ordine")
-                .delete()
-                .eq("ordineId", ordineId)
-                .select("id");
-
-        if (error) {
-            callback(error);
-            return;
-        }
-
-        callback(
-            null,
-            data ? data.length : 0
-        );
-
-    } catch (errore) {
-
-        callback(errore);
-
-    }
-
-}
-
-
-// =====================================================
-// AZZERA ORDINE
-// =====================================================
-
-async function azzeraOrdine(
-    ordineId,
-    callback
-) {
-
-    try {
-
-        const { error } =
-            await supabase
-                .from("dettagli_ordine")
-                .delete()
-                .eq("ordineId", ordineId);
-
-        if (error) {
-            callback(error);
-            return;
-        }
-
-        callback(null);
-
-    } catch (errore) {
-
-        callback(errore);
-
-    }
-
-}
-
-
-// =====================================================
-// RECUPERA ORDINE
-// =====================================================
-
-async function getOrdine(
-    ordineId,
-    callback
-) {
-
-    try {
-
-        const { data: ordine, error: erroreOrdine } =
-            await supabase
-                .from("ordini")
-                .select("*")
-                .eq("id", ordineId)
-                .maybeSingle();
-
-        if (erroreOrdine) {
-            callback(erroreOrdine);
-            return;
-        }
-
-        if (!ordine) {
-            callback(
-                new Error("Ordine non trovato")
-            );
-            return;
-        }
-
-
-        const { data: prodotti, error: erroreProdotti } =
-            await supabase
-                .from("dettagli_ordine")
-                .select("codice, descrizione, quantita")
-                .eq("ordineId", ordineId);
-
-        if (erroreProdotti) {
-            callback(erroreProdotti);
-            return;
-        }
-
-
-        callback(null, {
-
-            ordineId:
-                ordine.id,
-
-            puntoVenditaId:
-                ordine.puntoVenditaId,
-
-            stato:
-                ordine.stato,
-
-            prodotti:
-                prodotti || []
-
-        });
-
-    } catch (errore) {
-
-        callback(errore);
-
-    }
+        .catch(callback);
 
 }
 
@@ -442,137 +36,376 @@ async function getOrdine(
 // APRI ORDINE
 // =====================================================
 
-async function apriOrdine(
-    puntoVenditaId,
-    callback
-) {
+function apriOrdine(puntoVenditaId, callback) {
 
-    try {
+    supabase
+        .from("ordini")
+        .select("*")
+        .eq("puntoVenditaId", puntoVenditaId)
+        .eq("stato", "APERTO")
+        .limit(1)
 
-        const { data: ordine, error: erroreRicerca } =
-            await supabase
-                .from("ordini")
-                .select("id")
-                .eq("puntoVenditaId", puntoVenditaId)
-                .eq("stato", "APERTO")
-                .order("id", {
-                    ascending: false
-                })
-                .limit(1)
-                .maybeSingle();
+        .then(async ({ data, error }) => {
 
-        if (erroreRicerca) {
-            callback(erroreRicerca);
-            return;
-        }
+            if (error) {
+                callback(error);
+                return;
+            }
 
+            if (data && data.length > 0) {
 
-        if (ordine) {
+                callback(null, data[0].id);
+                return;
 
-            callback(null, ordine.id);
-            return;
+            }
 
-        }
+            const risultato =
+                await supabase
+                    .from("ordini")
+                    .insert({
+                        puntoVenditaId: puntoVenditaId,
+                        stato: "APERTO"
+                    })
+                    .select("id")
+                    .single();
 
+            if (risultato.error) {
+                callback(risultato.error);
+                return;
+            }
 
-        const { data, error } =
-            await supabase
-                .from("ordini")
-                .insert({
-                    puntoVenditaId:
-                        puntoVenditaId,
+            callback(null, risultato.data.id);
 
-                    stato:
-                        "APERTO"
-                })
-                .select("id")
-                .single();
+        })
 
-        if (error) {
-            callback(error);
-            return;
-        }
-
-        callback(null, data.id);
-
-    } catch (errore) {
-
-        callback(errore);
-
-    }
+        .catch(callback);
 
 }
 
 
 // =====================================================
-// RECUPERA ORDINE PER ID
+// AGGIUNGI PRODOTTO
 // =====================================================
 
-async function getOrdineById(
+function aggiungiProdottoOrdine(
+    ordineId,
+    codice,
+    descrizione,
+    quantita,
+    callback
+) {
+
+    supabase
+        .from("dettagli_ordine")
+        .select("id")
+        .eq("ordineId", ordineId)
+        .eq("codice", codice)
+        .limit(1)
+
+        .then(async ({ data, error }) => {
+
+            if (error) {
+                callback(error);
+                return;
+            }
+
+            if (data && data.length > 0) {
+
+                const id =
+                    data[0].id;
+
+                const risultato =
+                    await supabase
+                        .from("dettagli_ordine")
+                        .update({
+                            quantita: quantita,
+                            descrizione: descrizione
+                        })
+                        .eq("id", id);
+
+                if (risultato.error) {
+                    callback(risultato.error);
+                    return;
+                }
+
+                callback(null, id);
+                return;
+
+            }
+
+            const risultato =
+                await supabase
+                    .from("dettagli_ordine")
+                    .insert({
+                        ordineId: ordineId,
+                        codice: codice,
+                        descrizione: descrizione,
+                        quantita: quantita
+                    })
+                    .select("id")
+                    .single();
+
+            if (risultato.error) {
+                callback(risultato.error);
+                return;
+            }
+
+            callback(null, risultato.data.id);
+
+        })
+
+        .catch(callback);
+
+}
+
+
+// =====================================================
+// ORDINE APERTO
+// =====================================================
+
+function getOrdineAperto(
+    puntoVenditaId,
+    callback
+) {
+
+    supabase
+        .from("ordini")
+        .select("*")
+        .eq("puntoVenditaId", puntoVenditaId)
+        .eq("stato", "APERTO")
+        .limit(1)
+
+        .then(async ({ data, error }) => {
+
+            if (error) {
+                callback(error);
+                return;
+            }
+
+            if (!data || data.length === 0) {
+
+                callback(null, null);
+                return;
+
+            }
+
+            const ordine = data[0];
+
+            const risultato =
+                await supabase
+                    .from("dettagli_ordine")
+                    .select("codice, descrizione, quantita")
+                    .eq("ordineId", ordine.id);
+
+            if (risultato.error) {
+                callback(risultato.error);
+                return;
+            }
+
+            callback(null, {
+
+                ordineId: ordine.id,
+
+                puntoVenditaId:
+                    ordine.puntoVenditaId,
+
+                stato:
+                    ordine.stato,
+
+                prodotti:
+                    risultato.data || []
+
+            });
+
+        })
+
+        .catch(callback);
+
+}
+
+
+// =====================================================
+// MODIFICA QUANTITÀ
+// =====================================================
+
+function modificaQuantitaOrdine(
+    ordineId,
+    codice,
+    quantita,
+    callback
+) {
+
+    supabase
+        .from("dettagli_ordine")
+        .update({
+            quantita: quantita
+        })
+        .eq("ordineId", ordineId)
+        .eq("codice", codice)
+
+        .then(({ error, count }) => {
+
+            if (error) {
+                callback(error);
+                return;
+            }
+
+            callback(null, count || 1);
+
+        })
+
+        .catch(callback);
+
+}
+
+
+// =====================================================
+// ELIMINA PRODOTTO
+// =====================================================
+
+function eliminaProdottoOrdine(
+    ordineId,
+    codice,
+    callback
+) {
+
+    supabase
+        .from("dettagli_ordine")
+        .delete()
+        .eq("ordineId", ordineId)
+        .eq("codice", codice)
+
+        .then(({ error }) => {
+
+            if (error) {
+                callback(error);
+                return;
+            }
+
+            callback(null, 1);
+
+        })
+
+        .catch(callback);
+
+}
+
+
+// =====================================================
+// AZZERA ORDINE
+// =====================================================
+
+function azzeraOrdine(
     ordineId,
     callback
 ) {
 
-    try {
+    supabase
+        .from("dettagli_ordine")
+        .delete()
+        .eq("ordineId", ordineId)
 
-        const { data: ordine, error: erroreOrdine } =
-            await supabase
-                .from("ordini")
-                .select("*")
-                .eq("id", ordineId)
-                .maybeSingle();
+        .then(({ error }) => {
 
-        if (erroreOrdine) {
-            callback(erroreOrdine);
-            return;
-        }
+            if (error) {
+                callback(error);
+                return;
+            }
 
-        if (!ordine) {
+            callback(null);
 
-            callback(
-                new Error("Ordine non trovato")
-            );
+        })
 
-            return;
-        }
+        .catch(callback);
+
+}
 
 
-        const { data: prodotti, error: erroreProdotti } =
-            await supabase
-                .from("dettagli_ordine")
-                .select(
-                    "codice, descrizione, quantita"
-                )
-                .eq("ordineId", ordineId);
+// Compatibilità con il vecchio nome
+function azzeraOrdineDatabase(
+    ordineId,
+    callback
+) {
+
+    azzeraOrdine(
+        ordineId,
+        callback
+    );
+
+}
 
 
-        if (erroreProdotti) {
-            callback(erroreProdotti);
-            return;
-        }
+// =====================================================
+// GET ORDINE
+// =====================================================
+
+function getOrdine(
+    ordineId,
+    callback
+) {
+
+    supabase
+        .from("ordini")
+        .select("*")
+        .eq("id", ordineId)
+        .single()
+
+        .then(async ({ data: ordine, error }) => {
+
+            if (error) {
+                callback(error);
+                return;
+            }
+
+            const risultato =
+                await supabase
+                    .from("dettagli_ordine")
+                    .select(
+                        "codice, descrizione, quantita"
+                    )
+                    .eq("ordineId", ordineId);
+
+            if (risultato.error) {
+                callback(risultato.error);
+                return;
+            }
+
+            callback(null, {
+
+                ordineId:
+                    ordine.id,
+
+                puntoVenditaId:
+                    ordine.puntoVenditaId,
+
+                stato:
+                    ordine.stato,
+
+                prodotti:
+                    risultato.data || []
+
+            });
+
+        })
+
+        .catch(callback);
+
+}
 
 
-        callback(null, {
+// =====================================================
+// GET ORDINE BY ID
+// =====================================================
 
-            ordineId:
-                ordine.id,
+function getOrdineById(
+    ordineId,
+    callback
+) {
 
-            puntoVenditaId:
-                ordine.puntoVenditaId,
-
-            stato:
-                ordine.stato,
-
-            prodotti:
-                prodotti || []
-
-        });
-
-    } catch (errore) {
-
-        callback(errore);
-
-    }
+    getOrdine(
+        ordineId,
+        callback
+    );
 
 }
 
@@ -581,203 +414,203 @@ async function getOrdineById(
 // CHIUDI ORDINE
 // =====================================================
 
-async function chiudiOrdine(
+function chiudiOrdine(
     ordineId,
     callback
 ) {
 
-    try {
+    supabase
+        .from("ordini")
+        .update({
+            stato: "INVIATO"
+        })
+        .eq("id", ordineId)
 
-        const { data, error } =
-            await supabase
-                .from("ordini")
-                .update({
-                    stato: "INVIATO"
-                })
-                .eq("id", ordineId)
-                .select("id");
+        .then(({ error }) => {
 
-        if (error) {
-            callback(error);
-            return;
-        }
+            if (error) {
+                callback(error);
+                return;
+            }
 
-        callback(
-            null,
-            data ? data.length : 0
-        );
+            callback(null, 1);
 
-    } catch (errore) {
+        })
 
-        callback(errore);
-
-    }
+        .catch(callback);
 
 }
 
 
 // =====================================================
-// PUNTO VENDITA
+// CREA PUNTO VENDITA
 // =====================================================
 
-async function creaPuntoVendita(
+function creaPuntoVendita(
     nome,
     codice,
     password,
     tiscaliUsername,
     tiscaliPassword,
-    callback
+    callback = () => {}
 ) {
 
-    try {
+    supabase
+        .from("punti_vendita")
+        .insert({
 
-        const { data, error } =
-            await supabase
-                .from("punti_vendita")
-                .insert({
+            nome: nome,
 
-                    nome:
-                        nome,
+            codice: codice,
 
-                    codice:
-                        codice,
+            password: password,
 
-                    password:
-                        password,
+            ruolo: "negozio",
 
-                    ruolo:
-                        "negozio",
+            tiscaliUsername:
+                tiscaliUsername || "",
 
-                    tiscaliUsername:
-                        tiscaliUsername || "",
+            tiscaliPassword:
+                tiscaliPassword || "",
 
-                    tiscaliPassword:
-                        tiscaliPassword || "",
+            attivo: 1
 
-                    attivo:
-                        1
+        })
+        .select("id")
+        .single()
 
-                })
-                .select("id")
-                .single();
+        .then(({ data, error }) => {
 
-        if (error) {
+            if (error) {
+                console.error(
+                    "Errore creazione punto vendita:",
+                    error
+                );
 
-            console.error(
-                "Errore creazione punto vendita:",
-                error
-            );
-
-            if (callback) {
                 callback(error);
+                return;
             }
 
-            return;
-        }
+            console.log(
+                "Punto vendita creato ID:",
+                data.id
+            );
 
-
-        console.log(
-            "Punto vendita creato ID:",
-            data.id
-        );
-
-
-        if (callback) {
             callback(null, data.id);
-        }
 
-    } catch (errore) {
+        })
 
-        console.error(
-            "Errore creazione punto vendita:",
-            errore
-        );
-
-        if (callback) {
-            callback(errore);
-        }
-
-    }
+        .catch(callback);
 
 }
 
 
 // =====================================================
-// LOGIN PUNTO VENDITA
+// LOGIN PUNTO VENDITA / ADMIN
 // =====================================================
 
-async function verificaLogin(
+function verificaLogin(
     codice,
     password,
     callback
 ) {
 
-    try {
+    // -------------------------------------------------
+    // PRIMA CERCA ADMIN
+    // -------------------------------------------------
 
-        const { data, error } =
-            await supabase
-                .from("punti_vendita")
-                .select("*")
-                .eq("codice", codice)
-                .eq("password", password)
-                .eq("attivo", 1)
-                .neq("ruolo", "amministratore")
-                .maybeSingle();
+    supabase
+        .from("amministratori")
+        .select("*")
+        .eq("username", codice)
+        .eq("password", password)
+        .eq("attivo", 1)
+        .limit(1)
 
-        if (error) {
+        .then(async ({ data: adminData, error }) => {
 
-            callback(error, null);
-            return;
+            if (error) {
+                callback(error, null);
+                return;
+            }
 
-        }
+            if (
+                adminData &&
+                adminData.length > 0
+            ) {
 
-        callback(null, data || null);
+                const admin =
+                    adminData[0];
 
-    } catch (errore) {
+                callback(null, {
 
-        callback(errore, null);
+                    id: admin.id,
 
-    }
+                    nome:
+                        admin.nome || "Amministratore",
 
-}
+                    codice:
+                        admin.username,
 
+                    ruolo:
+                        "amministratore",
 
-// =====================================================
-// LOGIN AMMINISTRATORE
-// =====================================================
+                    attivo:
+                        admin.attivo
 
-async function verificaLoginAmministratore(
-    codice,
-    password,
-    callback
-) {
+                });
 
-    try {
+                return;
 
-        const { data, error } =
-            await supabase
-                .from("punti_vendita")
-                .select("*")
-                .eq("codice", codice)
-                .eq("password", password)
-                .eq("attivo", 1)
-                .eq("ruolo", "amministratore")
-                .maybeSingle();
+            }
 
-        if (error) {
+            // -----------------------------------------
+            // POI CERCA PUNTO VENDITA
+            // -----------------------------------------
 
-            callback(error, null);
-            return;
+            const risultato =
+                await supabase
+                    .from("punti_vendita")
+                    .select("*")
+                    .eq("codice", codice)
+                    .eq("password", password)
+                    .eq("attivo", 1)
+                    .limit(1);
 
-        }
+            if (risultato.error) {
+                callback(
+                    risultato.error,
+                    null
+                );
+                return;
+            }
 
-        callback(null, data || null);
+            if (
+                risultato.data &&
+                risultato.data.length > 0
+            ) {
 
-    } catch (errore) {
+                callback(
+                    null,
+                    risultato.data[0]
+                );
 
-        callback(errore, null);
+                return;
 
-    }
+            }
+
+            callback(null, null);
+
+        })
+
+        .catch(err => {
+
+            callback(
+                err,
+                null
+            );
+
+        });
 
 }
 
@@ -786,153 +619,141 @@ async function verificaLoginAmministratore(
 // CREA AMMINISTRATORE
 // =====================================================
 
-async function creaAmministratore(
-    codice,
+function creaAmministratore(
+    username,
     password,
     callback
 ) {
 
-    try {
+    supabase
+        .from("amministratori")
+        .insert({
 
-        const { data, error } =
-            await supabase
-                .from("punti_vendita")
-                .insert({
+            username: username,
 
-                    nome:
-                        "Amministratore",
+            password: password,
 
-                    codice:
-                        codice,
+            nome: "Amministratore",
 
-                    password:
-                        password,
+            attivo: 1
 
-                    ruolo:
-                        "amministratore",
+        })
+        .select("id")
+        .single()
 
-                    attivo:
-                        1
+        .then(({ data, error }) => {
 
-                })
-                .select("id")
-                .single();
+            if (error) {
 
-        if (error) {
+                console.error(
+                    "Errore creazione amministratore:",
+                    error
+                );
 
-            console.error(
-                "Errore creazione amministratore:",
-                error
+                callback(error);
+                return;
+
+            }
+
+            console.log(
+                "Amministratore creato ID:",
+                data.id
             );
 
-            callback(error);
-            return;
+            callback(
+                null,
+                data.id
+            );
 
-        }
+        })
 
-
-        console.log(
-            "Amministratore creato con ID:",
-            data.id
-        );
-
-
-        callback(
-            null,
-            data.id
-        );
-
-    } catch (errore) {
-
-        callback(errore);
-
-    }
+        .catch(callback);
 
 }
 
 
 // =====================================================
-// RECUPERA PUNTO VENDITA
+// PUNTO VENDITA BY ID
 // =====================================================
 
-async function getPuntoVenditaById(
+function getPuntoVenditaById(
     id,
     callback
 ) {
 
-    try {
+    supabase
+        .from("punti_vendita")
+        .select("*")
+        .eq("id", id)
+        .limit(1)
 
-        const { data, error } =
-            await supabase
-                .from("punti_vendita")
-                .select("*")
-                .eq("id", id)
-                .maybeSingle();
+        .then(({ data, error }) => {
 
-        if (error) {
+            if (error) {
+                callback(error, null);
+                return;
+            }
 
-            callback(error, null);
-            return;
+            callback(
+                null,
+                data && data.length > 0
+                    ? data[0]
+                    : null
+            );
 
-        }
+        })
 
-        callback(
-            null,
-            data || null
-        );
+        .catch(err => {
 
-    } catch (errore) {
+            callback(
+                err,
+                null
+            );
 
-        callback(
-            errore,
-            null
-        );
-
-    }
+        });
 
 }
 
 
 // =====================================================
-// RECUPERA TUTTI I PUNTI VENDITA
+// TUTTI I PUNTI VENDITA
 // =====================================================
 
-async function getTuttiPuntiVendita(
+function getTuttiPuntiVendita(
     callback
 ) {
 
-    try {
+    supabase
+        .from("punti_vendita")
+        .select(
+            "id, nome, codice, ruolo, attivo"
+        )
+        .order("nome", {
+            ascending: true
+        })
 
-        const { data, error } =
-            await supabase
-                .from("punti_vendita")
-                .select(
-                    "id, nome, codice, ruolo, attivo"
-                )
-                .order("nome", {
-                    ascending: true
-                });
+        .then(({ data, error }) => {
 
-        if (error) {
+            if (error) {
+                callback(error, null);
+                return;
+            }
 
-            callback(error, null);
-            return;
+            callback(
+                null,
+                data || []
+            );
 
-        }
+        })
 
-        callback(
-            null,
-            data || []
-        );
+        .catch(err => {
 
-    } catch (errore) {
+            callback(
+                err,
+                null
+            );
 
-        callback(
-            errore,
-            null
-        );
-
-    }
+        });
 
 }
 
@@ -941,35 +762,30 @@ async function getTuttiPuntiVendita(
 // DISATTIVA PUNTO VENDITA
 // =====================================================
 
-async function disattivaPuntoVendita(
+function disattivaPuntoVendita(
     id,
     callback
 ) {
 
-    try {
+    supabase
+        .from("punti_vendita")
+        .update({
+            attivo: 0
+        })
+        .eq("id", id)
 
-        const { error } =
-            await supabase
-                .from("punti_vendita")
-                .update({
-                    attivo: 0
-                })
-                .eq("id", id);
+        .then(({ error }) => {
 
-        if (error) {
+            if (error) {
+                callback(error);
+                return;
+            }
 
-            callback(error);
-            return;
+            callback(null);
 
-        }
+        })
 
-        callback(null);
-
-    } catch (errore) {
-
-        callback(errore);
-
-    }
+        .catch(callback);
 
 }
 
@@ -978,44 +794,39 @@ async function disattivaPuntoVendita(
 // RIATTIVA PUNTO VENDITA
 // =====================================================
 
-async function riattivaPuntoVendita(
+function riattivaPuntoVendita(
     id,
     callback
 ) {
 
-    try {
+    supabase
+        .from("punti_vendita")
+        .update({
+            attivo: 1
+        })
+        .eq("id", id)
 
-        const { error } =
-            await supabase
-                .from("punti_vendita")
-                .update({
-                    attivo: 1
-                })
-                .eq("id", id);
+        .then(({ error }) => {
 
-        if (error) {
+            if (error) {
+                callback(error);
+                return;
+            }
 
-            callback(error);
-            return;
+            callback(null);
 
-        }
+        })
 
-        callback(null);
-
-    } catch (errore) {
-
-        callback(errore);
-
-    }
+        .catch(callback);
 
 }
 
 
 // =====================================================
-// MODIFICA PUNTO VENDITA ADMIN
+// MODIFICA PUNTO VENDITA
 // =====================================================
 
-async function modificaPuntoVendita(
+function modificaPuntoVendita(
     id,
     nome,
     codice,
@@ -1025,15 +836,15 @@ async function modificaPuntoVendita(
     callback
 ) {
 
-    try {
+    supabase
+        .from("punti_vendita")
+        .update({
 
-        const dati = {
+            nome: nome,
 
-            nome:
-                nome,
+            codice: codice,
 
-            codice:
-                codice,
+            password: password,
 
             tiscaliUsername:
                 tiscaliUsername || "",
@@ -1041,45 +852,21 @@ async function modificaPuntoVendita(
             tiscaliPassword:
                 tiscaliPassword || ""
 
-        };
+        })
+        .eq("id", id)
 
+        .then(({ error }) => {
 
-        // La password viene modificata
-        // SOLO se ne viene inserita una nuova
+            if (error) {
+                callback(error);
+                return;
+            }
 
-        if (
-            password !== undefined &&
-            password !== null &&
-            String(password).trim() !== ""
-        ) {
+            callback(null);
 
-            dati.password =
-                String(password).trim();
+        })
 
-        }
-
-
-        const { error } =
-            await supabase
-                .from("punti_vendita")
-                .update(dati)
-                .eq("id", id);
-
-
-        if (error) {
-
-            callback(error);
-            return;
-
-        }
-
-        callback(null);
-
-    } catch (errore) {
-
-        callback(errore);
-
-    }
+        .catch(callback);
 
 }
 
@@ -1088,7 +875,7 @@ async function modificaPuntoVendita(
 // MODIFICA PROPRIO ACCOUNT
 // =====================================================
 
-async function aggiornaMioAccount(
+function aggiornaMioAccount(
     id,
     password,
     tiscaliUsername,
@@ -1096,9 +883,11 @@ async function aggiornaMioAccount(
     callback
 ) {
 
-    try {
+    supabase
+        .from("punti_vendita")
+        .update({
 
-        const dati = {
+            password: password,
 
             tiscaliUsername:
                 tiscaliUsername || "",
@@ -1106,91 +895,97 @@ async function aggiornaMioAccount(
             tiscaliPassword:
                 tiscaliPassword || ""
 
-        };
+        })
+        .eq("id", id)
 
+        .then(({ error }) => {
 
-        // La password viene modificata
-        // SOLO se ne viene inserita una nuova
+            if (error) {
+                callback(error);
+                return;
+            }
 
-        if (
-            password !== undefined &&
-            password !== null &&
-            String(password).trim() !== ""
-        ) {
+            callback(null);
 
-            dati.password =
-                String(password).trim();
+        })
 
-        }
+        .catch(callback);
 
+}
 
-        const { error } =
-            await supabase
-                .from("punti_vendita")
-                .update(dati)
-                .eq("id", id);
+function verificaLoginAmministratore(
+    username,
+    password,
+    callback
+) {
 
+    supabase
+        .from("amministratori")
+        .select(`
+            id,
+            username,
+            nome,
+            attivo
+        `)
+        .eq("username", username)
+        .eq("password", password)
+        .eq("attivo", 1)
+        .maybeSingle()
+        .then(({ data, error }) => {
 
-        if (error) {
+            if (error) {
 
-            callback(error);
-            return;
+                callback(error, null);
+                return;
 
-        }
+            }
 
-        callback(null);
+            callback(null, data);
 
-    } catch (errore) {
+        })
+        .catch((err) => {
 
-        callback(errore);
+            callback(err, null);
 
-    }
+        });
 
 }
 
 
-// =====================================================
-// RECUPERA AMMINISTRATORE
-// =====================================================
-
-async function getAmministratoreById(
+function getAmministratoreById(
     id,
     callback
 ) {
 
-    try {
+    supabase
+        .from("amministratori")
+        .select(`
+            id,
+            username,
+            nome,
+            attivo
+        `)
+        .eq("id", id)
+        .maybeSingle()
+        .then(({ data, error }) => {
 
-        const { data, error } =
-            await supabase
-                .from("punti_vendita")
-                .select("*")
-                .eq("id", id)
-                .eq("ruolo", "amministratore")
-                .maybeSingle();
+            if (error) {
 
-        if (error) {
+                callback(error, null);
+                return;
 
-            callback(error, null);
-            return;
+            }
 
-        }
+            callback(null, data);
 
-        callback(
-            null,
-            data || null
-        );
+        })
+        .catch((err) => {
 
-    } catch (errore) {
+            callback(err, null);
 
-        callback(
-            errore,
-            null
-        );
-
-    }
+        });
 
 }
-
 
 // =====================================================
 // EXPORT
@@ -1224,11 +1019,7 @@ module.exports = {
 
     verificaLogin,
 
-    verificaLoginAmministratore,
-
     creaAmministratore,
-
-    getAmministratoreById,
 
     getPuntoVenditaById,
 
@@ -1240,7 +1031,10 @@ module.exports = {
 
     aggiornaMioAccount,
 
-    riattivaPuntoVendita
+    riattivaPuntoVendita,
+
+    verificaLoginAmministratore,
+
+    getAmministratoreById,
 
 };
-

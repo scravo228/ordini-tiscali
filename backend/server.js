@@ -15,6 +15,7 @@ const ordiniDatabase = require("./ordiniDatabase");
 
 const puntiVendita = require("./puntiVendita");
 const prodotti = require("./prodotti");
+const listaProdotti = require("./listaprodotti");
 const listaPuntiVendita = require("./listaPuntiVendita");
 const ordineCorrente = require("./ordineCorrente");
 const ordini = require("./ordini");
@@ -172,7 +173,28 @@ app.get("/punti-vendita", (req, res) => {
 
 app.get("/prodotti", (req, res) => {
 
-    res.json(prodotti);
+    listaProdotti.getListaProdotti((errore, prodottiOnline) => {
+
+        if (errore) {
+
+            console.error(
+                "Errore recupero lista prodotti:",
+                errore
+            );
+
+            return res.status(500).json({
+                successo: false,
+                errore: "Errore recupero lista prodotti"
+            });
+
+        }
+
+        res.json({
+            successo: true,
+            prodotti: prodottiOnline
+        });
+
+    });
 
 });
 
