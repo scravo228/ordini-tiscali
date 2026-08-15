@@ -1,4 +1,6 @@
-
+// =====================================================
+// AVVIO SERVER
+// =====================================================
 require("dotenv").config();
 
 const express = require("express");
@@ -20,6 +22,9 @@ const ordini = require("./ordini");
 const app = express();
 
 const PORT = process.env.PORT || 3000;
+
+
+
 
 
 // =====================================================
@@ -2096,115 +2101,243 @@ app.post(
                         const risultati = [];
 
 
-                        for (
-                            const prodotto
-                            of prodottiOrdine
-                        ) {
+// -------------------------------------------------
+// ELABORA TUTTI I PRODOTTI
+// UN ERRORE NON DEVE BLOCCARE IL RESTO DELL'ORDINE
+// -------------------------------------------------
 
-                            console.log(
-                                "RICERCA PRODOTTO:",
-                                prodotto.codice
-                            );
+for (
+    const prodotto
+    of prodottiOrdine
+) {
 
+    const codice =
+        String(
+            prodotto.codice || ""
+        ).trim();
 
-                            const ricerca =
-                                await tiscali.cercaProdottoTiscali(
-                                    prodotto.codice
-                                );
-
-
-                            if (
-                                !ricerca.successo ||
-                                !ricerca.productId
-                            ) {
-
-                                risultati.push({
-
-                                    codice:
-                                        prodotto.codice,
-
-                                    quantita:
-                                        prodotto.quantita,
-
-                                    trovato: false,
-
-                                    aggiunto: false,
-
-                                    errore:
-                                        ricerca.errore ||
-                                        "Prodotto non trovato"
-
-                                });
+    const quantita =
+        Number(
+            prodotto.quantita || 0
+        );
 
 
-                                console.log(
-                                    "PRODOTTO NON TROVATO:",
-                                    prodotto.codice
-                                );
+    console.log(
+        "---------------------------------"
+    );
+
+    console.log(
+        "INIZIO ELABORAZIONE PRODOTTO:",
+        codice
+    );
+
+    console.log(
+        "QUANTITÀ:",
+        quantita
+    );
 
 
-                                continue;
+    // -------------------------------------------------
+    // PROVA IL SINGOLO PRODOTTO
+    // -------------------------------------------------
 
-                            }
+    try {
 
+        // -------------------------------------------------
+        // 1. RICERCA PRODOTTO
+        // -------------------------------------------------
 
-                            console.log(
-                                "PRODOTTO TROVATO:",
-                                prodotto.codice,
-                                "PRODUCT ID:",
-                                ricerca.productId
-                            );
-
-
-                            const aggiunta =
-                                await tiscali.aggiungiAlCarrelloTiscali(
-                                    ricerca.productId,
-                                    prodotto.quantita
-                                );
+        console.log(
+            "RICERCA PRODOTTO:",
+            codice
+        );
 
 
-                            const aggiunto =
-                                aggiunta.successo === true &&
-                                aggiunta.modalitaTest !== true;
+        const ricerca =
+            await tiscali.cercaProdottoTiscali(
+                codice
+            );
 
 
-                            risultati.push({
+        // -------------------------------------------------
+        // PRODOTTO NON TROVATO
+        // -------------------------------------------------
 
-                                codice:
-                                    prodotto.codice,
+        if (
+            !ricerca ||
+            !ricerca.successo ||
+            !ricerca.productId
+        ) {
 
-                                quantita:
-                                    prodotto.quantita,
-
-                                productId:
-                                    ricerca.productId,
-
-                                trovato: true,
-
-                                aggiunto,
-
-                                errore:
-                                    aggiunta.successo
-                                        ? null
-                                        : (
-                                            aggiunta.errore ||
-                                            "Errore aggiunta"
-                                        ),
-
-                                modalitaTest:
-                                    aggiunta.modalitaTest === true
-
-                            });
+            console.log(
+                "❌ PRODOTTO NON TROVATO:",
+                codice
+            );
 
 
-                            console.log(
-                                aggiunto
-                                    ? "PRODOTTO AGGIUNTO:"
-                                    : "ERRORE AGGIUNTA:",
-                                prodotto.codice
-                            );
+            risultati.push({
 
-                        }
+                codice,
+
+                quantita,
+
+                trovato: false,
+
+                aggiunto: false,
+
+                productId: null,
+
+                errore:
+                    ricerca?.errore ||
+                    "Prodotto non trovato"
+
+            });
+
+
+            // IMPORTANTISSIMO:
+            // passa direttamente al prodotto successivo
+
+            continue;
+
+        }
+
+
+        // -------------------------------------------------
+        // PRODOTTO TROVATO
+        // -------------------------------------------------
+
+        console.log(
+            "✅ PRODOTTO TROVATO:",
+            codice
+        );
+
+        console.log(
+            "PRODUCT ID:",
+            ricerca.productId
+        );
+
+
+        // -------------------------------------------------
+        // 2. AGGIUNTA AL CARRELLO
+        // -------------------------------------------------
+
+        console.log(
+            "AGGIUNTA AL CARRELLO:",
+            codice
+        );
+
+
+        const aggiunta =
+            await tiscali.aggiungiAlCarrelloTiscali(
+                ricerca.productId,
+                quantita
+            );
+
+
+        const aggiunto =
+            aggiunta &&
+            aggiunta.successo === true &&
+            aggiunta.modalitaTest !== true;
+
+
+        // -------------------------------------------------
+        // SALVA RISULTATO
+        // -------------------------------------------------
+
+        risultati.push({
+
+            codice,
+
+            quantita,
+
+            productId:
+                ricerca.productId,
+
+            trovato: true,
+
+            aggiunto,
+
+            errore:
+                aggiunto
+                    ? null
+                    : (
+                        aggiunta?.errore ||
+                        "Errore durante l'aggiunta al carrello"
+                    ),
+
+            modalitaTest:
+                aggiunta?.modalitaTest === true
+
+        });
+
+
+        if (aggiunto) {
+
+            console.log(
+                "✅ PRODOTTO AGGIUNTO:",
+                codice
+            );
+
+        } else {
+
+            console.log(
+                "❌ ERRORE AGGIUNTA:",
+                codice
+            );
+
+            console.log(
+                "ERRORE:",
+                aggiunta?.errore ||
+                "Errore durante l'aggiunta"
+            );
+
+        }
+
+
+    } catch (erroreProdotto) {
+
+        // -------------------------------------------------
+        // ERRORE IMPREVISTO DEL SINGOLO PRODOTTO
+        // NON BLOCCA GLI ALTRI
+        // -------------------------------------------------
+
+        console.error(
+            "❌ ERRORE SINGOLO PRODOTTO:",
+            codice
+        );
+
+        console.error(
+            erroreProdotto
+        );
+
+
+        risultati.push({
+
+            codice,
+
+            quantita,
+
+            trovato: false,
+
+            aggiunto: false,
+
+            productId: null,
+
+            errore:
+                erroreProdotto.message ||
+                "Errore durante la gestione del prodotto"
+
+        });
+
+
+        // IMPORTANTISSIMO:
+        // continua con il prossimo prodotto
+
+        continue;
+
+    }
+
+}
 
 
                         const errori =
@@ -2222,13 +2355,62 @@ const prodottiNonTrovati =
     );
 
 
-                        // -------------------------------------------------
-                        // 5. CHIUDE ORDINE DB SOLO SE TUTTO OK
-                        // -------------------------------------------------
+// -------------------------------------------------
+// CONTROLLO ORDINE COMPLETATO
+// -------------------------------------------------
 
-                        if (
-                            errori.length === 0
-                        ) {
+const ordineCompletato =
+    errori.length === 0 &&
+    prodottiNonTrovati.length === 0;
+
+
+console.log(
+    "================================="
+);
+
+console.log(
+    "VERIFICA COMPLETAMENTO ORDINE"
+);
+
+console.log(
+    "PRODOTTI TOTALI:",
+    risultati.length
+);
+
+console.log(
+    "PRODOTTI AGGIUNTI:",
+    risultati.filter(
+        p => p.aggiunto
+    ).length
+);
+
+console.log(
+    "PRODOTTI CON ERRORE:",
+    errori.length
+);
+
+console.log(
+    "PRODOTTI NON TROVATI:",
+    prodottiNonTrovati.length
+);
+
+console.log(
+    "ORDINE COMPLETATO:",
+    ordineCompletato
+);
+
+console.log(
+    "================================="
+);
+
+
+// -------------------------------------------------
+// 5. CHIUDE ORDINE DB SOLO SE TUTTO OK
+// -------------------------------------------------
+
+if (
+    ordineCompletato
+) {
 
                             await new Promise(
                                 (resolve) => {
@@ -2272,8 +2454,8 @@ const prodottiNonTrovati =
 
                         return res.json({
 
-                            successo:
-                                errori.length === 0,
+    successo:
+        ordineCompletato,
 
                             ordineId:
                                 ordine.ordineId,
@@ -2759,22 +2941,45 @@ app.post(
 
 
                 ordiniDatabase.creaPuntoVendita(
-                    nome,
-                    codice,
-                    password,
-                    tiscaliUsername || "",
-                    tiscaliPassword || ""
-                );
+    nome,
+    codice,
+    password,
+    tiscaliUsername || "",
+    tiscaliPassword || "",
+    (errore, idPuntoVendita) => {
 
+        if (errore) {
 
-                return res.json({
+            console.error(
+                "Errore creazione punto vendita:",
+                errore
+            );
 
-                    successo: true,
+            return res.status(500).json({
 
-                    messaggio:
-                        "Punto vendita creato"
+                successo: false,
 
-                });
+                errore:
+                    errore.message
+
+            });
+
+        }
+
+        return res.json({
+
+            successo: true,
+
+            messaggio:
+                "Punto vendita creato",
+
+            puntoVenditaId:
+                idPuntoVendita
+
+        });
+
+    }
+);
 
             }
         );
@@ -2834,7 +3039,7 @@ app.get(
                     successo: true,
 
                     puntoVenditaId:
-                        punto.puntoVenditaId,
+                        punto.Id,
 
                     nome:
                         punto.nome,
