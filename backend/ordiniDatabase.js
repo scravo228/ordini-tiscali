@@ -1,91 +1,37 @@
-const supabase = require("./database");
+const db = require("./database");
 
-
-// =====================================================
-// CREA ORDINE
-// =====================================================
 
 function creaOrdine(puntoVenditaId, callback) {
 
-    supabase
-        .from("ordini")
-        .insert({
-            puntoVenditaId: puntoVenditaId,
-            stato: "APERTO"
-        })
-        .select("id")
-        .single()
+    db.run(
+        `
+        INSERT INTO ordini
+        (puntoVenditaId, stato)
 
-        .then(({ data, error }) => {
+        VALUES (?, ?)
+        `,
+        [
+            puntoVenditaId,
+            "APERTO"
+        ],
+        function(err) {
 
-            if (error) {
-                callback(error);
-                return;
+            if (err) {
+
+                callback(err);
+
+            } else {
+
+                callback(null, this.lastID);
+
             }
 
-            callback(null, data.id);
-
-        })
-
-        .catch(callback);
+        }
+    );
 
 }
 
 
-// =====================================================
-// APRI ORDINE
-// =====================================================
-
-function apriOrdine(puntoVenditaId, callback) {
-
-    supabase
-        .from("ordini")
-        .select("*")
-        .eq("puntoVenditaId", puntoVenditaId)
-        .eq("stato", "APERTO")
-        .limit(1)
-
-        .then(async ({ data, error }) => {
-
-            if (error) {
-                callback(error);
-                return;
-            }
-
-            if (data && data.length > 0) {
-
-                callback(null, data[0].id);
-                return;
-
-            }
-
-            const risultato =
-                await supabase
-                    .from("ordini")
-                    .insert({
-                        puntoVenditaId: puntoVenditaId,
-                        stato: "APERTO"
-                    })
-                    .select("id")
-                    .single();
-
-            if (risultato.error) {
-                callback(risultato.error);
-                return;
-            }
-
-            callback(null, risultato.data.id);
-
-        })
-
-        .catch(callback);
-
-}
-
-
-// =====================================================
-// AGGIUNGI PRODOTTO
-// =====================================================
 
 function aggiungiProdottoOrdine(
     ordineId,
@@ -95,139 +41,166 @@ function aggiungiProdottoOrdine(
     callback
 ) {
 
-    supabase
-        .from("dettagli_ordine")
-        .select("id")
-        .eq("ordineId", ordineId)
-        .eq("codice", codice)
-        .limit(1)
+    db.get(
+        `
+        SELECT *
+        FROM dettagli_ordine
+        WHERE ordineId = ?
+        AND codice = ?
+        `,
+        [
+            ordineId,
+            codice
+        ],
+        (err, prodotto) => {
 
-        .then(async ({ data, error }) => {
 
-            if (error) {
-                callback(error);
-                return;
-            }
+            if(err){
 
-            if (data && data.length > 0) {
-
-                const id =
-                    data[0].id;
-
-                const risultato =
-                    await supabase
-                        .from("dettagli_ordine")
-                        .update({
-                            quantita: quantita,
-                            descrizione: descrizione
-                        })
-                        .eq("id", id);
-
-                if (risultato.error) {
-                    callback(risultato.error);
-                    return;
-                }
-
-                callback(null, id);
+                callback(err);
                 return;
 
             }
 
-            const risultato =
-                await supabase
-                    .from("dettagli_ordine")
-                    .insert({
-                        ordineId: ordineId,
-                        codice: codice,
-                        descrizione: descrizione,
-                        quantita: quantita
-                    })
-                    .select("id")
-                    .single();
 
-            if (risultato.error) {
-                callback(risultato.error);
-                return;
+            if(prodotto){
+
+
+                db.run(
+                    `
+                    UPDATE dettagli_ordine
+                    SET quantita = ?
+                    WHERE id = ?
+                    `,
+                    [
+                        quantita,
+                        prodotto.id
+                    ],
+                    function(err){
+
+
+                        if(err){
+
+                            callback(err);
+
+                        } else {
+
+                            callback(null, prodotto.id);
+
+                        }
+
+
+                    }
+                );
+
+
+            } else {
+
+
+                db.run(
+                    `
+                    INSERT INTO dettagli_ordine
+(ordineId, codice, descrizione, quantita)
+
+VALUES (?, ?, ?, ?)
+                    `,
+                    [
+                        ordineId,
+    codice,
+    descrizione,
+    quantita
+                    ],
+                    function(err){
+
+
+                        if(err){
+
+                            callback(err);
+
+                        } else {
+
+                            callback(null, this.lastID);
+
+                        }
+
+
+                    }
+                );
+
+
             }
 
-            callback(null, risultato.data.id);
 
-        })
+        }
+    );
 
-        .catch(callback);
+}function getOrdineAperto(puntoVenditaId, callback) {
 
-}
+    db.get(
+        `
+        SELECT *
+        FROM ordini
+        WHERE puntoVenditaId = ?
+        AND stato = 'APERTO'
+        `,
+        [
+            puntoVenditaId
+        ],
+        (err, ordine) => {
 
+            if (err) {
 
-// =====================================================
-// ORDINE APERTO
-// =====================================================
+                callback(err);
 
-function getOrdineAperto(
-    puntoVenditaId,
-    callback
-) {
-
-    supabase
-        .from("ordini")
-        .select("*")
-        .eq("puntoVenditaId", puntoVenditaId)
-        .eq("stato", "APERTO")
-        .limit(1)
-
-        .then(async ({ data, error }) => {
-
-            if (error) {
-                callback(error);
-                return;
-            }
-
-            if (!data || data.length === 0) {
+            } else if (!ordine) {
 
                 callback(null, null);
-                return;
+
+            } else {
+
+                db.all(
+                    `
+                    SELECT codice, quantita
+                    FROM dettagli_ordine
+                    WHERE ordineId = ?
+                    `,
+                    [
+                        ordine.id
+                    ],
+                    (err, prodotti) => {
+
+                        if (err) {
+
+                            callback(err);
+
+                        } else {
+
+                            callback(null, {
+
+                                ordineId:
+                                    ordine.id,
+
+                                puntoVenditaId:
+                                    ordine.puntoVenditaId,
+
+                                stato:
+                                    ordine.stato,
+
+                                prodotti:
+                                    prodotti
+
+                            });
+
+                        }
+
+                    }
+                );
 
             }
 
-            const ordine = data[0];
-
-            const risultato =
-                await supabase
-                    .from("dettagli_ordine")
-                    .select("codice, descrizione, quantita")
-                    .eq("ordineId", ordine.id);
-
-            if (risultato.error) {
-                callback(risultato.error);
-                return;
-            }
-
-            callback(null, {
-
-                ordineId: ordine.id,
-
-                puntoVenditaId:
-                    ordine.puntoVenditaId,
-
-                stato:
-                    ordine.stato,
-
-                prodotti:
-                    risultato.data || []
-
-            });
-
-        })
-
-        .catch(callback);
-
+        }
+    );
 }
-
-
-// =====================================================
-// MODIFICA QUANTITÀ
-// =====================================================
-
 function modificaQuantitaOrdine(
     ordineId,
     codice,
@@ -235,597 +208,591 @@ function modificaQuantitaOrdine(
     callback
 ) {
 
-    supabase
-        .from("dettagli_ordine")
-        .update({
-            quantita: quantita
-        })
-        .eq("ordineId", ordineId)
-        .eq("codice", codice)
 
-        .then(({ error, count }) => {
+    db.run(
+        `
+        UPDATE dettagli_ordine
+        SET quantita = ?
+        WHERE ordineId = ?
+        AND codice = ?
+        `,
+        [
+            quantita,
+            ordineId,
+            codice
+        ],
+        function(err) {
 
-            if (error) {
-                callback(error);
-                return;
+
+            if(err){
+
+                callback(err);
+
+            } else {
+
+                callback(null, this.changes);
+
             }
 
-            callback(null, count || 1);
 
-        })
+        }
+    );
 
-        .catch(callback);
 
 }
-
-
-// =====================================================
-// ELIMINA PRODOTTO
-// =====================================================
-
 function eliminaProdottoOrdine(
     ordineId,
     codice,
     callback
 ) {
 
-    supabase
-        .from("dettagli_ordine")
-        .delete()
-        .eq("ordineId", ordineId)
-        .eq("codice", codice)
+    db.run(
+        `
+        DELETE FROM dettagli_ordine
+        WHERE ordineId = ?
+        AND codice = ?
+        `,
+        [
+            ordineId,
+            codice
+        ],
+        function(err) {
 
-        .then(({ error }) => {
+            if(err){
 
-            if (error) {
-                callback(error);
-                return;
+                callback(err);
+
+            } else {
+
+                callback(null, this.changes);
+
             }
 
-            callback(null, 1);
-
-        })
-
-        .catch(callback);
+        }
+    );
 
 }
-
-
-// =====================================================
-// AZZERA ORDINE
-// =====================================================
-
-function azzeraOrdine(
-    ordineId,
-    callback
-) {
-
-    supabase
-        .from("dettagli_ordine")
-        .delete()
-        .eq("ordineId", ordineId)
-
-        .then(({ error }) => {
-
-            if (error) {
-                callback(error);
-                return;
-            }
-
-            callback(null);
-
-        })
-
-        .catch(callback);
-
-}
-
-
-// Compatibilità con il vecchio nome
 function azzeraOrdineDatabase(
     ordineId,
     callback
 ) {
 
-    azzeraOrdine(
-        ordineId,
-        callback
+
+    db.run(
+        `
+        DELETE FROM dettagli_ordine
+        WHERE ordineId = ?
+        `,
+        [
+            ordineId
+        ],
+        function(err) {
+
+
+            if(err){
+
+                callback(err);
+
+            } else {
+
+                callback(null, this.changes);
+
+            }
+
+
+        }
+    );
+
+
+}
+function azzeraOrdine(ordineId, callback){
+
+    db.run(
+        `
+        DELETE FROM dettagli_ordine
+        WHERE ordineId = ?
+        `,
+        [
+            ordineId
+        ],
+        function(err){
+
+            callback(err);
+
+        }
     );
 
 }
+function getOrdine(ordineId, callback){
 
+    db.all(
+        `
+        SELECT codice, descrizione, quantita
+        FROM dettagli_ordine
+        WHERE ordineId = ?
+        `,
+        [
+            ordineId
+        ],
+        (err, prodotti)=>{
 
-// =====================================================
-// GET ORDINE
-// =====================================================
+            if(err){
 
-function getOrdine(
-    ordineId,
-    callback
-) {
-
-    supabase
-        .from("ordini")
-        .select("*")
-        .eq("id", ordineId)
-        .single()
-
-        .then(async ({ data: ordine, error }) => {
-
-            if (error) {
-                callback(error);
+                callback(err);
                 return;
+
             }
 
-            const risultato =
-                await supabase
-                    .from("dettagli_ordine")
-                    .select(
-                        "codice, descrizione, quantita"
-                    )
-                    .eq("ordineId", ordineId);
-
-            if (risultato.error) {
-                callback(risultato.error);
-                return;
-            }
 
             callback(null, {
 
-                ordineId:
-                    ordine.id,
+                puntoVenditaId: 1,
 
-                puntoVenditaId:
-                    ordine.puntoVenditaId,
+                stato: "APERTO",
 
-                stato:
-                    ordine.stato,
-
-                prodotti:
-                    risultato.data || []
+                prodotti: prodotti
 
             });
 
-        })
-
-        .catch(callback);
+        }
+    );
 
 }
-
-
-// =====================================================
-// GET ORDINE BY ID
-// =====================================================
-
-function getOrdineById(
-    ordineId,
+function apriOrdine(
+    puntoVenditaId,
     callback
 ) {
 
-    getOrdine(
-        ordineId,
-        callback
+
+    db.get(
+        `
+        SELECT *
+        FROM ordini
+        WHERE puntoVenditaId = ?
+        AND stato = 'APERTO'
+        `,
+        [
+            puntoVenditaId
+        ],
+        (err, ordine) => {
+
+
+            if(err){
+
+                callback(err);
+
+            }
+            else if(ordine){
+
+                callback(null, ordine.id);
+
+            }
+            else {
+
+
+                db.run(
+                    `
+                    INSERT INTO ordini
+                    (puntoVenditaId, stato)
+
+                    VALUES (?, ?)
+                    `,
+                    [
+                        puntoVenditaId,
+                        "APERTO"
+                    ],
+                    function(err) {
+
+
+                        if(err){
+
+                            callback(err);
+
+                        } else {
+
+                            callback(null, this.lastID);
+
+                        }
+
+
+                    }
+                );
+
+
+            }
+
+
+        }
+    );
+
+
+}
+function getOrdineById(ordineId, callback) {
+
+    db.get(
+        `
+        SELECT *
+        FROM ordini
+        WHERE id = ?
+        `,
+        [ordineId],
+        (err, ordine) => {
+
+            if (err) {
+                return callback(err);
+            }
+
+            if (!ordine) {
+                return callback(
+                    new Error("Ordine non trovato")
+                );
+            }
+
+            db.all(
+                `
+                SELECT
+                    codice,
+                    descrizione,
+                    quantita
+                FROM dettagli_ordine
+                WHERE ordineId = ?
+                `,
+                [ordineId],
+                (err, prodotti) => {
+
+                    if (err) {
+                        return callback(err);
+                    }
+
+                    callback(null, {
+                        ordineId: ordine.id,
+                        puntoVenditaId:
+                            ordine.puntoVenditaId,
+                        stato: ordine.stato,
+                        prodotti: prodotti
+                    });
+
+                }
+            );
+
+        }
+    );
+
+}
+function chiudiOrdine(ordineId, callback) {
+
+    db.run(
+        `
+        UPDATE ordini
+        SET stato = 'INVIATO'
+        WHERE id = ?
+        `,
+        [
+            ordineId
+        ],
+        function(err) {
+
+            if (err) {
+
+                callback(err);
+
+            } else {
+
+                callback(null, this.changes);
+
+            }
+
+        }
     );
 
 }
 
+function chiudiOrdine(ordineId, callback) {
 
-// =====================================================
-// CHIUDI ORDINE
-// =====================================================
+    db.run(
+        `
+        UPDATE ordini
+        SET stato = ?
+        WHERE id = ?
+        `,
+        [
+            "INVIATO",
+            ordineId
+        ],
+        function(err) {
 
-function chiudiOrdine(
-    ordineId,
-    callback
-) {
+            if (err) {
 
-    supabase
-        .from("ordini")
-        .update({
-            stato: "INVIATO"
-        })
-        .eq("id", ordineId)
+                callback(err);
 
-        .then(({ error }) => {
+            } else {
 
-            if (error) {
-                callback(error);
-                return;
+                callback(null, this.changes);
+
             }
 
-            callback(null, 1);
-
-        })
-
-        .catch(callback);
+        }
+    );
 
 }
-
-
-// =====================================================
-// CREA PUNTO VENDITA
-// =====================================================
 
 function creaPuntoVendita(
     nome,
     codice,
     password,
     tiscaliUsername,
-    tiscaliPassword,
-    callback = () => {}
+    tiscaliPassword
 ) {
 
-    supabase
-        .from("punti_vendita")
-        .insert({
+    db.run(
+        `
+        INSERT INTO punti_vendita
+        (
+            nome,
+            codice,
+            password,
+            ruolo,
+            tiscaliUsername,
+            tiscaliPassword,
+            attivo
+        )
+        VALUES
+        (?, ?, ?, 'negozio', ?, ?, 1)
+        `,
+        [
+            nome,
+            codice,
+            password,
+            tiscaliUsername,
+            tiscaliPassword
+        ],
+        function(err) {
 
-            nome: nome,
+            if (err) {
 
-            codice: codice,
-
-            password: password,
-
-            ruolo: "negozio",
-
-            tiscaliUsername:
-                tiscaliUsername || "",
-
-            tiscaliPassword:
-                tiscaliPassword || "",
-
-            attivo: 1
-
-        })
-        .select("id")
-        .single()
-
-        .then(({ data, error }) => {
-
-            if (error) {
                 console.error(
                     "Errore creazione punto vendita:",
-                    error
+                    err
                 );
 
-                callback(error);
                 return;
+
             }
 
             console.log(
                 "Punto vendita creato ID:",
-                data.id
+                this.lastID
             );
 
-            callback(null, data.id);
-
-        })
-
-        .catch(callback);
+        }
+    );
 
 }
+function verificaLogin(codice, password, callback) {
 
+    db.get(
+        `
+        SELECT *
+        FROM punti_vendita
+        WHERE codice = ?
+        AND password = ?
+        AND attivo = 1
+        `,
+        [
+            codice,
+            password
+        ],
+        (err, puntoVendita) => {
 
-// =====================================================
-// LOGIN PUNTO VENDITA / ADMIN
-// =====================================================
-
-function verificaLogin(
-    codice,
-    password,
-    callback
-) {
-
-    // -------------------------------------------------
-    // PRIMA CERCA ADMIN
-    // -------------------------------------------------
-
-    supabase
-        .from("amministratori")
-        .select("*")
-        .eq("username", codice)
-        .eq("password", password)
-        .eq("attivo", 1)
-        .limit(1)
-
-        .then(async ({ data: adminData, error }) => {
-
-            if (error) {
-                callback(error, null);
+            if (err) {
+                callback(err, null);
                 return;
             }
 
-            if (
-                adminData &&
-                adminData.length > 0
-            ) {
-
-                const admin =
-                    adminData[0];
-
-                callback(null, {
-
-                    id: admin.id,
-
-                    nome:
-                        admin.nome || "Amministratore",
-
-                    codice:
-                        admin.username,
-
-                    ruolo:
-                        "amministratore",
-
-                    attivo:
-                        admin.attivo
-
-                });
-
-                return;
-
-            }
-
-            // -----------------------------------------
-            // POI CERCA PUNTO VENDITA
-            // -----------------------------------------
-
-            const risultato =
-                await supabase
-                    .from("punti_vendita")
-                    .select("*")
-                    .eq("codice", codice)
-                    .eq("password", password)
-                    .eq("attivo", 1)
-                    .limit(1);
-
-            if (risultato.error) {
-                callback(
-                    risultato.error,
-                    null
-                );
-                return;
-            }
-
-            if (
-                risultato.data &&
-                risultato.data.length > 0
-            ) {
-
-                callback(
-                    null,
-                    risultato.data[0]
-                );
-
-                return;
-
-            }
-
-            callback(null, null);
-
-        })
-
-        .catch(err => {
-
-            callback(
-                err,
-                null
-            );
-
-        });
+            callback(null, puntoVendita);
+        }
+    );
 
 }
+db.run(`
+    ALTER TABLE punti_vendita
+    ADD COLUMN ruolo TEXT DEFAULT 'negozio'
+`, (err) => {
+
+    if (
+        err &&
+        !err.message.includes("duplicate column")
+    ) {
+        console.error(err);
+    }
+
+});
 
 
-// =====================================================
-// CREA AMMINISTRATORE
-// =====================================================
+db.run(`
+    ALTER TABLE punti_vendita
+    ADD COLUMN tiscaliUsername TEXT
+`, (err) => {
 
-function creaAmministratore(
-    username,
-    password,
-    callback
-) {
+    if (
+        err &&
+        !err.message.includes("duplicate column")
+    ) {
+        console.error(err);
+    }
 
-    supabase
-        .from("amministratori")
-        .insert({
+});
 
-            username: username,
 
-            password: password,
+db.run(`
+    ALTER TABLE punti_vendita
+    ADD COLUMN tiscaliPassword TEXT
+`, (err) => {
 
-            nome: "Amministratore",
+    if (
+        err &&
+        !err.message.includes("duplicate column")
+    ) {
+        console.error(err);
+    }
 
-            attivo: 1
+});
+function creaAmministratore(codice, password, callback) {
 
-        })
-        .select("id")
-        .single()
+    db.run(
+        `
+        INSERT INTO punti_vendita
+        (nome, codice, password, ruolo, attivo)
+        VALUES (?, ?, ?, 'amministratore', 1)
+        `,
+        [
+            "Amministratore",
+            codice,
+            password
+        ],
+        function (err) {
 
-        .then(({ data, error }) => {
-
-            if (error) {
+            if (err) {
 
                 console.error(
                     "Errore creazione amministratore:",
-                    error
+                    err
                 );
 
-                callback(error);
+                callback(err);
                 return;
-
             }
 
             console.log(
-                "Amministratore creato ID:",
-                data.id
+                "Amministratore creato con ID:",
+                this.lastID
             );
 
-            callback(
-                null,
-                data.id
-            );
+            callback(null, this.lastID);
 
-        })
-
-        .catch(callback);
+        }
+    );
 
 }
+function getPuntoVenditaById(id, callback) {
 
+    db.get(
+        `
+        SELECT *
+        FROM punti_vendita
+        WHERE id = ?
+        `,
+        [
+            id
+        ],
+        (err, puntoVendita) => {
 
-// =====================================================
-// PUNTO VENDITA BY ID
-// =====================================================
+            if (err) {
 
-function getPuntoVenditaById(
-    id,
-    callback
-) {
+                callback(
+                    err,
+                    null
+                );
 
-    supabase
-        .from("punti_vendita")
-        .select("*")
-        .eq("id", id)
-        .limit(1)
-
-        .then(({ data, error }) => {
-
-            if (error) {
-                callback(error, null);
                 return;
             }
 
+
             callback(
                 null,
-                data && data.length > 0
-                    ? data[0]
-                    : null
+                puntoVendita
             );
 
-        })
-
-        .catch(err => {
-
-            callback(
-                err,
-                null
-            );
-
-        });
+        }
+    );
 
 }
+function getTuttiPuntiVendita(callback) {
 
 
-// =====================================================
-// TUTTI I PUNTI VENDITA
-// =====================================================
+    db.all(
+        `
+        SELECT 
+            id,
+            nome,
+            codice,
+            ruolo,
+            attivo
+        FROM punti_vendita
+        ORDER BY nome
+        `,
+        [],
+        (err, punti) => {
 
-function getTuttiPuntiVendita(
-    callback
-) {
 
-    supabase
-        .from("punti_vendita")
-        .select(
-            "id, nome, codice, ruolo, attivo"
-        )
-        .order("nome", {
-            ascending: true
-        })
+            if (err) {
 
-        .then(({ data, error }) => {
+                callback(
+                    err,
+                    null
+                );
 
-            if (error) {
-                callback(error, null);
                 return;
+
             }
 
+
             callback(
                 null,
-                data || []
+                punti
             );
 
-        })
 
-        .catch(err => {
-
-            callback(
-                err,
-                null
-            );
-
-        });
+        }
+    );
 
 }
+function disattivaPuntoVendita(id, callback) {
 
+    db.run(
+        `
+        UPDATE punti_vendita
+        SET attivo = 0
+        WHERE id = ?
+        `,
+        [
+            id
+        ],
+        function(err) {
 
-// =====================================================
-// DISATTIVA PUNTO VENDITA
-// =====================================================
+            if (err) {
 
-function disattivaPuntoVendita(
-    id,
-    callback
-) {
-
-    supabase
-        .from("punti_vendita")
-        .update({
-            attivo: 0
-        })
-        .eq("id", id)
-
-        .then(({ error }) => {
-
-            if (error) {
-                callback(error);
+                callback(err);
                 return;
+
             }
 
             callback(null);
 
-        })
-
-        .catch(callback);
-
-}
-
-
-// =====================================================
-// RIATTIVA PUNTO VENDITA
-// =====================================================
-
-function riattivaPuntoVendita(
-    id,
-    callback
-) {
-
-    supabase
-        .from("punti_vendita")
-        .update({
-            attivo: 1
-        })
-        .eq("id", id)
-
-        .then(({ error }) => {
-
-            if (error) {
-                callback(error);
-                return;
-            }
-
-            callback(null);
-
-        })
-
-        .catch(callback);
+        }
+    );
 
 }
-
-
-// =====================================================
-// MODIFICA PUNTO VENDITA
-// =====================================================
-
 function modificaPuntoVendita(
     id,
     nome,
@@ -836,30 +803,45 @@ function modificaPuntoVendita(
     callback
 ) {
 
+    const dati = {
+
+        nome: nome,
+
+        codice: codice,
+
+        tiscaliUsername:
+            tiscaliUsername || "",
+
+        tiscaliPassword:
+            tiscaliPassword || ""
+
+    };
+
+    // La password viene modificata SOLO
+    // se ne è stata inserita una nuova
+    if (
+        password !== undefined &&
+        password !== null &&
+        String(password).trim() !== ""
+    ) {
+
+        dati.password =
+            String(password).trim();
+
+    }
+
     supabase
         .from("punti_vendita")
-        .update({
-
-            nome: nome,
-
-            codice: codice,
-
-            password: password,
-
-            tiscaliUsername:
-                tiscaliUsername || "",
-
-            tiscaliPassword:
-                tiscaliPassword || ""
-
-        })
+        .update(dati)
         .eq("id", id)
 
         .then(({ error }) => {
 
             if (error) {
+
                 callback(error);
                 return;
+
             }
 
             callback(null);
@@ -869,12 +851,6 @@ function modificaPuntoVendita(
         .catch(callback);
 
 }
-
-
-// =====================================================
-// MODIFICA PROPRIO ACCOUNT
-// =====================================================
-
 function aggiornaMioAccount(
     id,
     password,
@@ -883,26 +859,41 @@ function aggiornaMioAccount(
     callback
 ) {
 
+    const dati = {
+
+        tiscaliUsername:
+            tiscaliUsername || "",
+
+        tiscaliPassword:
+            tiscaliPassword || ""
+
+    };
+
+    // La password viene modificata SOLO
+    // se ne viene inserita una nuova
+    if (
+        password !== undefined &&
+        password !== null &&
+        String(password).trim() !== ""
+    ) {
+
+        dati.password =
+            String(password).trim();
+
+    }
+
     supabase
         .from("punti_vendita")
-        .update({
-
-            password: password,
-
-            tiscaliUsername:
-                tiscaliUsername || "",
-
-            tiscaliPassword:
-                tiscaliPassword || ""
-
-        })
+        .update(dati)
         .eq("id", id)
 
         .then(({ error }) => {
 
             if (error) {
+
                 callback(error);
                 return;
+
             }
 
             callback(null);
@@ -912,129 +903,55 @@ function aggiornaMioAccount(
         .catch(callback);
 
 }
+function riattivaPuntoVendita(id, callback) {
 
-function verificaLoginAmministratore(
-    username,
-    password,
-    callback
-) {
+    db.run(
+        `
+        UPDATE punti_vendita
+        SET attivo = 1
+        WHERE id = ?
+        `,
+        [
+            id
+        ],
+        function(err) {
 
-    supabase
-        .from("amministratori")
-        .select(`
-            id,
-            username,
-            nome,
-            attivo
-        `)
-        .eq("username", username)
-        .eq("password", password)
-        .eq("attivo", 1)
-        .maybeSingle()
-        .then(({ data, error }) => {
+            if (err) {
 
-            if (error) {
-
-                callback(error, null);
+                callback(err);
                 return;
 
             }
 
-            callback(null, data);
 
-        })
-        .catch((err) => {
+            callback(null);
 
-            callback(err, null);
-
-        });
+        }
+    );
 
 }
-
-
-function getAmministratoreById(
-    id,
-    callback
-) {
-
-    supabase
-        .from("amministratori")
-        .select(`
-            id,
-            username,
-            nome,
-            attivo
-        `)
-        .eq("id", id)
-        .maybeSingle()
-        .then(({ data, error }) => {
-
-            if (error) {
-
-                callback(error, null);
-                return;
-
-            }
-
-            callback(null, data);
-
-        })
-        .catch((err) => {
-
-            callback(err, null);
-
-        });
-
-}
-
-// =====================================================
-// EXPORT
-// =====================================================
 
 module.exports = {
 
     creaOrdine,
-
     apriOrdine,
-
     aggiungiProdottoOrdine,
-
     getOrdineAperto,
-
     modificaQuantitaOrdine,
-
     eliminaProdottoOrdine,
-
     azzeraOrdineDatabase,
-
     azzeraOrdine,
-
     getOrdine,
-
-    getOrdineById,
-
-    chiudiOrdine,
-
-    creaPuntoVendita,
-
-    verificaLogin,
-
-    creaAmministratore,
-
-    getPuntoVenditaById,
-
-    getTuttiPuntiVendita,
-
-    disattivaPuntoVendita,
-
-    modificaPuntoVendita,
-
-    aggiornaMioAccount,
-
-    riattivaPuntoVendita,
-
-    verificaLoginAmministratore,
-
-    getAmministratoreById,
+getOrdineById,
+chiudiOrdine,
+creaPuntoVendita,
+verificaLogin,
+creaAmministratore,
+getPuntoVenditaById,
+getTuttiPuntiVendita,
+disattivaPuntoVendita,
+modificaPuntoVendita,
+aggiornaMioAccount,
+riattivaPuntoVendita
 
 };
