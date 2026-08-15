@@ -19,7 +19,6 @@ function getListaProdotti(callback) {
         .order("id", {
             ascending: true
         })
-
         .then(({ data, error }) => {
 
             if (error) {
@@ -30,12 +29,79 @@ function getListaProdotti(callback) {
             callback(null, data || []);
 
         })
-
         .catch((err) => {
 
             callback(err, null);
 
         });
+
+}
+
+
+// =====================================================
+// SOSTITUISCE TUTTA LA LISTA PRODOTTI
+// =====================================================
+
+async function sostituisciListaProdotti(
+    prodotti,
+    callback
+) {
+
+    try {
+
+        const { error: erroreEliminazione } =
+            await supabase
+                .from("lista_prodotti")
+                .delete()
+                .neq("id", 0);
+
+        if (erroreEliminazione) {
+            callback(erroreEliminazione);
+            return;
+        }
+
+
+        if (!prodotti || prodotti.length === 0) {
+            callback(null);
+            return;
+        }
+
+
+        const righe =
+            prodotti.map(prodotto => ({
+                codice:
+                    String(prodotto.codice || "").trim(),
+
+                descrizione:
+                    String(prodotto.descrizione || "").trim(),
+
+                unita:
+                    String(prodotto.unita || "").trim(),
+
+                quantita:
+                    Number(prodotto.quantita) || 0
+            }));
+
+
+        const { error } =
+            await supabase
+                .from("lista_prodotti")
+                .insert(righe);
+
+
+        if (error) {
+            callback(error);
+            return;
+        }
+
+
+        callback(null);
+
+    } catch (err) {
+
+        callback(err);
+
+    }
 
 }
 
@@ -98,9 +164,7 @@ function modificaCodiceProdotto(
     supabase
         .from("lista_prodotti")
         .update({
-
             codice: nuovoCodice
-
         })
         .eq("id", id)
 
@@ -210,6 +274,7 @@ function eliminaProdotto(
 module.exports = {
 
     getListaProdotti,
+    sostituisciListaProdotti,
     inserisciProdotto,
     modificaCodiceProdotto,
     modificaProdotto,

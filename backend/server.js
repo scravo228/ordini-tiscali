@@ -767,22 +767,59 @@ app.post(
                     });
 
             console.log(
-                "PRODOTTI CREATI:",
-                dati.length
+    "PRODOTTI CREATI:",
+    dati.length
+);
+
+console.log(
+    "SALVATAGGIO LISTA IN SUPABASE..."
+);
+
+listaProdotti.sostituisciListaProdotti(
+    dati,
+    (erroreSalvataggio) => {
+
+        if (erroreSalvataggio) {
+
+            console.error(
+                "ERRORE SALVATAGGIO LISTA SUPABASE:",
+                erroreSalvataggio
             );
 
-            console.log(
-                "INVIO PRODOTTI AL TELEFONO:",
-                dati.length
-            );
+            return res.status(500).json({
 
-            res.json({
+                successo: false,
 
-                successo: true,
+                errore:
+                    "Errore salvataggio lista prodotti",
 
-                prodotti: dati
+                dettaglio:
+                    erroreSalvataggio.message
 
             });
+
+        }
+
+        console.log(
+            "LISTA SALVATA IN SUPABASE:",
+            dati.length
+        );
+
+        console.log(
+            "INVIO PRODOTTI AL TELEFONO:",
+            dati.length
+        );
+
+        return res.json({
+
+            successo: true,
+
+            prodotti: dati
+
+        });
+
+    }
+);
 
         } catch (errore) {
 
