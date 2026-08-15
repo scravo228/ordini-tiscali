@@ -15,7 +15,7 @@ const ordiniDatabase = require("./ordiniDatabase");
 
 const puntiVendita = require("./puntiVendita");
 const prodotti = require("./prodotti");
-const listaProdotti = require("./listaprodotti");
+const listaProdotti = require("./listaProdottiDatabase");
 const listaPuntiVendita = require("./listaPuntiVendita");
 const ordineCorrente = require("./ordineCorrente");
 const ordini = require("./ordini");
