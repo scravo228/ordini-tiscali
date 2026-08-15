@@ -2068,189 +2068,11 @@ app.post(
                         );
 
 
-                        // -------------------------------------------------
-                        // 4. CONTROLLO CARRELLO PRIMA DELL'ORDINE
-                        // -------------------------------------------------
+                        
 
-                        console.log(
-                            "================================="
-                        );
 
-                        console.log(
-                            "CONTROLLO CARRELLO PRIMA DELL'ORDINE"
-                        );
-
-                        console.log(
-                            "================================="
-                        );
-
-
-                        const carrelloPrima =
-                            await tiscali.leggiCarrelloTiscali();
-
-
-                        if (
-                            !carrelloPrima ||
-                            !carrelloPrima.successo
-                        ) {
-
-                            return res.status(500).json({
-
-                                successo: false,
-
-                                fase:
-                                    "controllo_carrello",
-
-                                errore:
-                                    carrelloPrima?.errore ||
-                                    "Impossibile leggere il carrello Tiscali",
-
-                                carrello:
-                                    carrelloPrima || null
-
-                            });
-
-                        }
-
-
-                        console.log(
-                            "ARTICOLI PRESENTI NEL CARRELLO:",
-                            carrelloPrima.numeroArticoli
-                        );
-
-
-                        // -------------------------------------------------
-                        // 5. SE NON VUOTO, SVUOTA
-                        // -------------------------------------------------
-
-                        if (
-                            Number(
-                                carrelloPrima.numeroArticoli
-                            ) > 0
-                        ) {
-
-                            console.log(
-                                "CARRELLO NON VUOTO → SVUOTAMENTO"
-                            );
-
-
-                            const svuotamento =
-                                await tiscali.svuotaCarrelloTiscali();
-
-
-                            if (
-                                !svuotamento ||
-                                !svuotamento.successo
-                            ) {
-
-                                return res.status(500).json({
-
-                                    successo: false,
-
-                                    fase:
-                                        "svuotamento_carrello",
-
-                                    errore:
-                                        svuotamento?.errore ||
-                                        "Impossibile svuotare il carrello",
-
-                                    carrelloPrima,
-
-                                    svuotamento:
-                                        svuotamento || null
-
-                                });
-
-                            }
-
-
-                            console.log(
-                                "SVUOTAMENTO CARRELLO ESEGUITO"
-                            );
-
-                        } else {
-
-                            console.log(
-                                "CARRELLO GIÀ VUOTO"
-                            );
-
-                        }
-
-
-                        // -------------------------------------------------
-                        // 6. VERIFICA CARRELLO REALMENTE VUOTO
-                        // -------------------------------------------------
-
-                        const carrelloVuoto =
-                            await tiscali.leggiCarrelloTiscali();
-
-
-                        if (
-                            !carrelloVuoto ||
-                            !carrelloVuoto.successo
-                        ) {
-
-                            return res.status(500).json({
-
-                                successo: false,
-
-                                fase:
-                                    "verifica_carrello_vuoto",
-
-                                errore:
-                                    carrelloVuoto?.errore ||
-                                    "Impossibile verificare il carrello",
-
-                                carrello:
-                                    carrelloVuoto || null
-
-                            });
-
-                        }
-
-
-                        console.log(
-                            "ARTICOLI DOPO CONTROLLO:",
-                            carrelloVuoto.numeroArticoli
-                        );
-
-
-                        if (
-                            Number(
-                                carrelloVuoto.numeroArticoli
-                            ) > 0
-                        ) {
-
-                            console.error(
-                                "IL CARRELLO NON È STATO SVUOTATO"
-                            );
-
-
-                            return res.status(409).json({
-
-                                successo: false,
-
-                                fase:
-                                    "carrello_non_vuoto",
-
-                                errore:
-                                    "Il carrello Tiscali contiene ancora prodotti. Ordine interrotto per sicurezza.",
-
-                                carrello:
-                                    carrelloVuoto
-
-                            });
-
-                        }
-
-
-                        console.log(
-                            "CARRELLO CONFERMATO VUOTO"
-                        );
-
-
-                        // -------------------------------------------------
-                        // 7. RICERCA + AGGIUNTA PRODOTTI
+                                                // -------------------------------------------------
+                        // 4. RICERCA + AGGIUNTA PRODOTTI
                         // -------------------------------------------------
 
                         console.log(
@@ -2302,7 +2124,7 @@ app.post(
                                         prodotto.codice,
 
                                     quantita:
-                                        produto.quantita,
+                                        prodotto.quantita,
 
                                     trovato: false,
 
@@ -2385,27 +2207,6 @@ app.post(
                         }
 
 
-                        // -------------------------------------------------
-                        // 8. VERIFICA FINALE CARRELLO
-                        // -------------------------------------------------
-
-                        console.log(
-                            "================================="
-                        );
-
-                        console.log(
-                            "VERIFICA FINALE CARRELLO"
-                        );
-
-                        console.log(
-                            "================================="
-                        );
-
-
-                        const carrello =
-                            await tiscali.verificaCarrelloTiscali();
-
-
                         const errori =
                             risultati.filter(
                                 p =>
@@ -2415,7 +2216,7 @@ app.post(
 
 
                         // -------------------------------------------------
-                        // 9. CHIUDE ORDINE DB SOLO SE TUTTO OK
+                        // 5. CHIUDE ORDINE DB SOLO SE TUTTO OK
                         // -------------------------------------------------
 
                         if (
@@ -2459,7 +2260,7 @@ app.post(
 
 
                         // -------------------------------------------------
-                        // 10. RISPOSTA FINALE
+                        // 6. RISPOSTA FINALE
                         // -------------------------------------------------
 
                         return res.json({
@@ -2482,9 +2283,7 @@ app.post(
                             prodottiConErrore:
                                 errori.length,
 
-                            risultati,
-
-                            carrello
+                            risultati
 
                         });
 
