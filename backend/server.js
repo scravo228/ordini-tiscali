@@ -2936,22 +2936,45 @@ app.post(
 
 
                 ordiniDatabase.creaPuntoVendita(
-                    nome,
-                    codice,
-                    password,
-                    tiscaliUsername || "",
-                    tiscaliPassword || ""
-                );
+    nome,
+    codice,
+    password,
+    tiscaliUsername || "",
+    tiscaliPassword || "",
+    (errore, idPuntoVendita) => {
 
+        if (errore) {
 
-                return res.json({
+            console.error(
+                "Errore creazione punto vendita:",
+                errore
+            );
 
-                    successo: true,
+            return res.status(500).json({
 
-                    messaggio:
-                        "Punto vendita creato"
+                successo: false,
 
-                });
+                errore:
+                    errore.message
+
+            });
+
+        }
+
+        return res.json({
+
+            successo: true,
+
+            messaggio:
+                "Punto vendita creato",
+
+            puntoVenditaId:
+                idPuntoVendita
+
+        });
+
+    }
+);
 
             }
         );
@@ -3011,7 +3034,7 @@ app.get(
                     successo: true,
 
                     puntoVenditaId:
-                        punto.puntoVenditaId,
+                        punto.Id,
 
                     nome:
                         punto.nome,
