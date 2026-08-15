@@ -175,37 +175,19 @@ app.get("/prodotti", (req, res) => {
 
     listaProdotti.getListaProdotti((errore, prodottiOnline) => {
 
-       if (errore) {
+        if (errore) {
 
-    console.error(
-        "================================="
-    );
+            console.error(
+                "Errore recupero lista prodotti:",
+                errore
+            );
 
-    console.error(
-        "ERRORE RECUPERO LISTA PRODOTTI"
-    );
+            return res.status(500).json({
+                successo: false,
+                errore: "Errore recupero lista prodotti"
+            });
 
-    console.error(
-        "MESSAGGIO:",
-        errore.message
-    );
-
-    console.error(
-        "DETTAGLI:",
-        errore
-    );
-
-    console.error(
-        "================================="
-    );
-
-    return res.status(500).json({
-        successo: false,
-        errore: errore.message,
-        dettagli: errore
-    });
-
-}
+        }
 
         res.json({
             successo: true,
