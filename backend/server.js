@@ -1,4 +1,30 @@
 // =====================================================
+// AVVIO SERVER
+// =====================================================
+require("dotenv").config();
+
+const express = require("express");
+const path = require("path");
+const cors = require("cors");
+const multer = require("multer");
+const XLSX = require("xlsx");
+const PDFDocument = require("pdfkit");
+
+const tiscali = require("./tiscali");
+const ordiniDatabase = require("./ordiniDatabase");
+
+const puntiVendita = require("./puntiVendita");
+const prodotti = require("./prodotti");
+const listaPuntiVendita = require("./listaPuntiVendita");
+const ordineCorrente = require("./ordineCorrente");
+const ordini = require("./ordini");
+
+const app = express();
+
+const PORT = process.env.PORT || 3000;
+
+
+// =====================================================
 // TEST CONNESSIONE SUPABASE
 // =====================================================
 
@@ -62,31 +88,7 @@ app.get("/test-supabase", async (req, res) => {
 
     }
 
-}); 
-// =====================================================
-// AVVIO SERVER
-// =====================================================
-require("dotenv").config();
-
-const express = require("express");
-const path = require("path");
-const cors = require("cors");
-const multer = require("multer");
-const XLSX = require("xlsx");
-const PDFDocument = require("pdfkit");
-
-const tiscali = require("./tiscali");
-const ordiniDatabase = require("./ordiniDatabase");
-
-const puntiVendita = require("./puntiVendita");
-const prodotti = require("./prodotti");
-const listaPuntiVendita = require("./listaPuntiVendita");
-const ordineCorrente = require("./ordineCorrente");
-const ordini = require("./ordini");
-
-const app = express();
-
-const PORT = process.env.PORT || 3000;
+});
 
 
 // =====================================================
