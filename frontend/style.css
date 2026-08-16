@@ -1,117 +1,312 @@
 /* =====================================================
-   ORDINI TISCALI - STILE APP
-   Colori: Nero / Arancione
+   ORDINI TISCALI
+   MOBILE FIRST
+   GRAFICA NERO / ARANCIONE
 ===================================================== */
 
 
-/* RESET GENERALE */
+/* =====================================================
+   RESET
+===================================================== */
 
 * {
     box-sizing: border-box;
 }
 
+html {
+    width: 100%;
+    margin: 0;
+    padding: 0;
+    overflow-x: hidden;
+}
 
 body {
+    width: 100%;
+    margin: 0;
+    padding: 10px;
+
+    background: #141414;
+    color: white;
 
     font-family: Arial, Helvetica, sans-serif;
 
-    background: #141414;
+    overflow-x: hidden;
 
-    color: white;
-
-    margin: 0;
-
-    padding: 15px;
-
+    -webkit-font-smoothing: antialiased;
 }
 
 
-
 /* =====================================================
-   TITOLO
+   CONTENITORE
 ===================================================== */
 
+.container {
+    width: 100%;
+    margin: 0 auto;
+}
+
+
+/* =====================================================
+   TITOLI
+===================================================== */
 
 h1 {
+    width: 100%;
 
-    background: #000000;
+    margin: 0 0 15px 0;
+    padding: 16px 10px;
+
+    background: #000;
 
     color: #ff6600;
 
     text-align: center;
 
-    padding: 20px;
-
-    border-radius: 15px;
-
     border: 2px solid #ff6600;
+    border-radius: 14px;
 
-    margin-bottom: 20px;
+    font-size: 23px;
 
+    line-height: 1.2;
 }
-
 
 
 /* =====================================================
-   INPUT EXCEL
+   LOGIN
 ===================================================== */
 
-
-input[type="file"] {
-
-    background: #222;
-
-    color: white;
+#schermataLogin {
 
     width: 100%;
+    max-width: 430px;
 
-    padding: 12px;
-
-    border-radius: 10px;
-
-    border: 1px solid #ff6600;
-
-    margin-bottom: 15px;
+    margin: 6vh auto 0 auto;
 
 }
 
+
+#schermataLogin h1 {
+
+    margin-bottom: 16px;
+
+}
+
+
+#schermataLogin input {
+
+    display: block;
+
+    width: 100%;
+    height: 48px;
+
+    margin: 0 0 11px 0;
+    padding: 0 13px;
+
+    background: #222;
+    color: white;
+
+    border: 1px solid #ff6600;
+    border-radius: 10px;
+
+    font-size: 16px;
+
+    outline: none;
+
+}
+
+
+#schermataLogin input:focus {
+
+    border: 2px solid #ff6600;
+
+}
+
+
+#schermataLogin button {
+
+    display: block;
+
+    width: 100%;
+    height: 48px;
+
+    background: #ff6600;
+    color: #000;
+
+    border: none;
+    border-radius: 10px;
+
+    font-size: 17px;
+    font-weight: bold;
+
+}
+
+
+#erroreLogin {
+
+    min-height: 20px;
+
+    margin: 10px 0 0 0;
+
+    text-align: center;
+
+    color: #ff4444;
+
+}
+
+
+/* =====================================================
+   TESTATA ORDINE
+===================================================== */
+
+.testata {
+    width: 100%;
+}
+
+
+.info-ordine {
+
+    width: 100%;
+
+    padding: 11px;
+
+    margin-bottom: 13px;
+
+    background: #000;
+
+    border: 1px solid #ff6600;
+    border-radius: 12px;
+
+    text-align: center;
+
+    font-size: 14px;
+
+    line-height: 1.55;
+
+}
+
+
+.info-ordine strong {
+    color: #ff6600;
+}
+
+
+/* =====================================================
+   FILE EXCEL
+===================================================== */
+
+input[type="file"] {
+
+    display: block;
+
+    width: 100%;
+
+    margin-bottom: 9px;
+    padding: 11px;
+
+    background: #222;
+    color: white;
+
+    border: 1px solid #ff6600;
+    border-radius: 10px;
+
+    font-size: 14px;
+
+}
+
+
+/* =====================================================
+   PULSANTE AGGIORNA EXCEL
+===================================================== */
+
+#app > button:not(.reset):not(.pdf):not(.invia) {
+
+    display: block;
+
+    width: 100%;
+
+    margin-bottom: 12px;
+    padding: 12px;
+
+    background: #222;
+    color: #ff6600;
+
+    border: 1px solid #ff6600;
+    border-radius: 10px;
+
+    font-size: 15px;
+
+}
+
+
+/* =====================================================
+   FILTRO
+===================================================== */
+
+.filtro {
+
+    display: flex;
+
+    width: 100%;
+
+    align-items: center;
+    justify-content: center;
+
+    gap: 8px;
+
+    margin-bottom: 13px;
+    padding: 10px;
+
+    background: #222;
+
+    border: 1px solid #333;
+    border-radius: 10px;
+
+    font-size: 14px;
+
+}
+
+
+.filtro input {
+
+    width: 19px;
+    height: 19px;
+
+    margin: 0;
+
+    accent-color: #ff6600;
+
+}
 
 
 /* =====================================================
    LISTA PRODOTTI
 ===================================================== */
 
-
 #listaProdotti {
-
-    margin-top: 15px;
-
+    width: 100%;
 }
 
 
-
-/* SCHEDA PRODOTTO */
-
+/* =====================================================
+   SCHEDA PRODOTTO
+===================================================== */
 
 .prodotto {
 
-    background: #242424;
-
-    border-radius: 12px;
-
-    padding: 15px;
+    width: 100%;
 
     margin-bottom: 12px;
+    padding: 17px 12px;
+
+    background: #242424;
 
     border: 1px solid #333;
+    border-radius: 14px;
 
-    box-shadow: 0 3px 8px black;
+    box-shadow:
+        0 3px 8px rgba(0, 0, 0, 0.7);
 
 }
-
-
-
-/* PRODOTTO SELEZIONATO */
 
 
 .prodotto.ordinato {
@@ -123,291 +318,852 @@ input[type="file"] {
 }
 
 
+/* =====================================================
+   CODICE
+===================================================== */
 
-/* CODICE */
+.codice-prodotto {
+
+    display: flex;
+
+    align-items: center;
+    justify-content: center;
+
+    gap: 8px;
+
+    width: 100%;
+
+    margin-bottom: 7px;
+
+}
 
 
-.prodotto h3 {
+.codice-prodotto strong {
 
-    margin: 0;
+    max-width: calc(100% - 45px);
 
     color: #ff6600;
 
-    font-size: 20px;
+    font-size: 18px;
+
+    text-align: center;
+
+    overflow-wrap: anywhere;
 
 }
 
 
+.codice-prodotto button {
 
-/* DESCRIZIONE */
+    width: 35px;
+    height: 35px;
 
+    min-width: 35px;
 
-.prodotto p {
+    padding: 0;
 
-    color: white;
+    background: #111;
 
-    font-size: 15px;
+    color: #ff6600;
+
+    border: 1px solid #ff6600;
+    border-radius: 8px;
+
+    font-size: 16px;
+
+    flex-shrink: 0;
 
 }
-
-
-
-/* UNITA' */
-
-
-.prodotto small {
-
-    color: #bbbbbb;
-
-}
-
 
 
 /* =====================================================
-   QUANTITA'
+   DESCRIZIONE
 ===================================================== */
 
+.prodotto p {
+
+    width: 100%;
+
+    margin: 9px auto 6px auto;
+
+    color: white;
+
+    text-align: center;
+
+    font-size: 17px;
+
+    line-height: 1.45;
+
+    overflow-wrap: anywhere;
+
+}
+
+
+/* =====================================================
+   UNITÀ
+===================================================== */
+
+.prodotto small {
+
+    display: block;
+
+    width: 100%;
+
+    margin-top: 5px;
+
+    color: #aaa;
+
+    text-align: center;
+
+    font-size: 13px;
+
+}
+
+
+/* =====================================================
+   QUANTITÀ
+===================================================== */
 
 .quantita {
 
     display: flex;
 
     align-items: center;
-
     justify-content: center;
 
-    gap: 20px;
+    gap: 15px;
 
-    margin-top: 15px;
+    width: 100%;
+
+    margin-top: 14px;
 
 }
-
 
 
 .quantita button {
 
-    width: 45px;
+    width: 50px;
+    height: 50px;
 
-    height: 45px;
+    min-width: 50px;
 
-    border-radius: 50%;
-
-    border: none;
+    padding: 0;
 
     background: #ff6600;
+    color: #000;
 
-    color: black;
+    border: none;
+    border-radius: 50%;
 
-    font-size: 25px;
-
+    font-size: 28px;
     font-weight: bold;
 
-}
-
-
-
-.quantita button:active {
-
-    transform: scale(0.9);
+    flex-shrink: 0;
 
 }
 
 
+.quantita input {
 
-.quantita span {
+    width: 62px;
+    height: 50px;
 
-    min-width: 40px;
+    padding: 0;
+
+    background: #111;
+    color: white;
+
+    border: 2px solid #ff6600;
+    border-radius: 9px;
 
     text-align: center;
 
-    font-size: 24px;
-
+    font-size: 21px;
     font-weight: bold;
-
-    color: #ff6600;
 
 }
 
+
+/* NASCONDE FRECCE NUMBER */
+
+.quantita input::-webkit-outer-spin-button,
+.quantita input::-webkit-inner-spin-button {
+
+    -webkit-appearance: none;
+    margin: 0;
+
+}
+
+.quantita input[type="number"] {
+    -moz-appearance: textfield;
+}
 
 
 /* =====================================================
    RIEPILOGO
 ===================================================== */
 
-
 #riepilogo {
+
+    width: 100%;
+
+    margin-top: 18px;
+    padding: 14px;
 
     background: #000;
 
     border: 2px solid #ff6600;
-
-    border-radius: 15px;
-
-    padding: 20px;
-
-    margin-top: 25px;
+    border-radius: 14px;
 
 }
 
 
-
 #riepilogo h2 {
 
+    margin-top: 0;
+
     color: #ff6600;
+
+    text-align: center;
+
+    font-size: 20px;
+
+}
+
+
+.rigaOrdine {
+
+    width: 100%;
+
+    margin-bottom: 8px;
+    padding: 10px;
+
+    background: #222;
+
+    border-radius: 9px;
+
+    overflow-wrap: anywhere;
+
+}
+
+
+.rigaOrdine strong {
+    color: #ff6600;
+}
+
+
+.rigaOrdine p {
+    margin: 4px 0;
+}
+
+
+/* =====================================================
+   PULSANTI ORDINE
+===================================================== */
+
+.reset,
+.pdf,
+.invia {
+
+    display: block;
+
+    width: 100%;
+
+    margin-top: 11px;
+    padding: 13px;
+
+    border-radius: 10px;
+
+    font-size: 16px;
+    font-weight: bold;
+
+}
+
+
+.reset {
+
+    background: #333;
+    color: white;
+
+    border: 1px solid #ff6600;
+
+}
+
+
+.pdf {
+
+    background: #ff6600;
+    color: #000;
+
+    border: none;
+
+}
+
+
+.invia {
+
+    background: #000;
+    color: #ff6600;
+
+    border: 2px solid #ff6600;
+
+}
+
+
+/* =====================================================
+   ESCI
+===================================================== */
+
+.btn-esci {
+
+    display: block;
+
+    width: 100%;
+
+    margin-top: 9px;
+    padding: 11px;
+
+    background: #222;
+    color: #ff6600;
+
+    border: 1px solid #ff6600;
+    border-radius: 9px;
+
+    font-size: 14px;
+
+}
+
+
+/* =====================================================
+   SCHERMATA INVIO
+===================================================== */
+
+.schermata-invio {
+
+    position: fixed;
+
+    inset: 0;
+
+    width: 100vw;
+    height: 100vh;
+
+    display: none;
+
+    align-items: center;
+    justify-content: center;
+
+    padding: 15px;
+
+    background: rgba(0, 0, 0, 0.75);
+
+    z-index: 9999;
+
+}
+
+
+.box-invio {
+
+    width: 100%;
+    max-width: 420px;
+
+    padding: 28px 20px;
+
+    background: white;
+    color: #222;
+
+    border-radius: 18px;
 
     text-align: center;
 
 }
 
 
+.icona-invio {
 
-.rigaOrdine {
-
-    background: #222;
-
-    border-radius: 10px;
-
-    padding: 12px;
-
-    margin-bottom: 10px;
+    font-size: 50px;
 
 }
 
 
+.box-invio h2 {
 
-.rigaOrdine strong {
-
-    color: #ff6600;
-
-}
-
-
-
-.rigaOrdine p {
-
-    margin: 5px 0;
+    margin: 5px 0 10px 0;
 
 }
 
 
+#testoInvio {
 
-/* =====================================================
-   PULSANTI
-===================================================== */
+    min-height: 25px;
 
-
-button {
-
-    cursor: pointer;
-
-    font-weight: bold;
+    font-size: 16px;
 
 }
 
 
-
-/* AZZERA */
-
-
-.reset {
+.barra-invio {
 
     width: 100%;
+    height: 17px;
 
     margin-top: 20px;
 
-    padding: 15px;
+    background: #e5e5e5;
 
-    background: #333;
+    border-radius: 20px;
 
-    color: white;
-
-    border: 2px solid #ff6600;
-
-    border-radius: 12px;
-
-    font-size: 18px;
+    overflow: hidden;
 
 }
 
 
+.barra-invio-avanzamento {
 
-/* PDF */
-
-
-.pdf {
-
-    width: 100%;
-
-    margin-top: 15px;
-
-    padding: 15px;
+    width: 35%;
+    height: 100%;
 
     background: #ff6600;
 
-    color: black;
+    border-radius: 20px;
 
-    border: none;
-
-    border-radius: 12px;
-
-    font-size: 18px;
+    animation:
+        avanzamentoInvio 1.5s infinite ease-in-out;
 
 }
 
 
+@keyframes avanzamentoInvio {
 
-/* INVIO TISCALI */
+    0% {
+        transform: translateX(-120%);
+    }
 
-
-.invia {
-
-    width: 100%;
-
-    margin-top: 15px;
-
-    padding: 15px;
-
-    background: #000;
-
-    color: #ff6600;
-
-    border: 2px solid #ff6600;
-
-    border-radius: 12px;
-
-    font-size: 18px;
+    100% {
+        transform: translateX(350%);
+    }
 
 }
 
+
+.attendere-invio {
+
+    margin-top: 17px;
+
+    color: #666;
+
+    font-size: 14px;
+
+}
 
 
 /* =====================================================
-   MOBILE IPHONE
+   ADMIN
 ===================================================== */
 
+.admin-panel {
 
-@media (max-width: 600px) {
+    width: 100%;
+    max-width: 500px;
 
+    margin: 8px auto;
+    padding: 12px;
+
+    background: #141414;
+
+    border: 2px solid #ff6600;
+    border-radius: 14px;
+
+}
+
+
+.admin-panel h1 {
+
+    margin-bottom: 12px;
+
+    padding: 13px 8px;
+
+    font-size: 21px;
+
+}
+
+
+.admin-panel h2 {
+
+    margin: 14px 0 9px 0;
+
+    color: #ff6600;
+
+    text-align: center;
+
+    font-size: 17px;
+
+}
+
+
+/* =====================================================
+   ESCI ADMIN
+===================================================== */
+
+.admin-panel .btn-esci-admin {
+
+    display: block;
+
+    width: 100%;
+
+    margin: 0 0 12px 0;
+    padding: 11px;
+
+    background: #000;
+    color: #ff6600;
+
+    border: 1px solid #ff6600;
+    border-radius: 9px;
+
+    font-size: 14px;
+
+}
+
+
+/* =====================================================
+   SEZIONE ADMIN
+===================================================== */
+
+.admin-sezione {
+
+    width: 100%;
+
+    padding: 10px;
+
+    background: #1d1d1d;
+
+    border: 1px solid #333;
+    border-radius: 10px;
+
+}
+
+
+/* =====================================================
+   CAMPI ADMIN
+===================================================== */
+
+.admin-panel input {
+
+    display: block;
+
+    width: 100%;
+    height: 40px;
+
+    margin: 6px 0;
+    padding: 0 10px;
+
+    background: #111;
+    color: white;
+
+    border: 1px solid #444;
+    border-radius: 8px;
+
+    font-size: 14px;
+
+}
+
+
+.admin-panel input:focus {
+
+    outline: none;
+
+    border-color: #ff6600;
+
+}
+
+
+/* =====================================================
+   PULSANTI ADMIN
+===================================================== */
+
+.admin-panel button {
+
+    display: block;
+
+    width: 100%;
+
+    min-height: 40px;
+
+    margin-top: 7px;
+    padding: 9px;
+
+    background: #222;
+    color: #ff6600;
+
+    border: 1px solid #ff6600;
+    border-radius: 9px;
+
+    font-size: 14px;
+
+}
+
+
+.admin-panel .btn-admin-crea {
+
+    background: #ff6600;
+    color: #000;
+
+    border: none;
+
+}
+
+
+/* =====================================================
+   MESSAGGIO ADMIN
+===================================================== */
+
+#adminMessaggio {
+
+    width: 100%;
+
+    margin: 8px 0;
+
+    text-align: center;
+
+    font-size: 14px;
+
+    overflow-wrap: anywhere;
+
+}
+
+
+/* =====================================================
+   PUNTI VENDITA
+===================================================== */
+
+#listaPuntiVenditaAdmin {
+
+    width: 100%;
+
+}
+
+
+.box-punto {
+
+    width: 100%;
+
+    margin-bottom: 8px;
+    padding: 10px;
+
+    background: #242424;
+
+    border: 1px solid #333;
+    border-radius: 10px;
+
+    font-size: 13px;
+
+    line-height: 1.4;
+
+    overflow-wrap: anywhere;
+
+}
+
+
+.box-punto strong {
+
+    color: #ff6600;
+
+    font-size: 15px;
+
+}
+
+
+.box-punto button {
+
+    margin-top: 6px;
+
+}
+
+
+/* =====================================================
+   DESKTOP
+===================================================== */
+
+@media (min-width: 601px) {
 
     body {
-
-        padding: 10px;
-
+        padding: 18px;
     }
 
 
-    h1 {
+    .container {
+        max-width: 900px;
+    }
 
-        font-size: 24px;
+
+    #listaProdotti {
+
+        display: grid;
+
+        grid-template-columns:
+            repeat(2, minmax(0, 1fr));
+
+        gap: 14px;
 
     }
 
 
     .prodotto {
+        margin-bottom: 0;
+    }
 
-        padding: 12px;
+}
+
+
+/* =====================================================
+   TELEFONI MOLTO PICCOLI
+===================================================== */
+
+@media (max-width: 380px) {
+
+    body {
+        padding: 7px;
+    }
+
+
+    h1 {
+        font-size: 21px;
+    }
+
+
+    .prodotto {
+        padding: 15px 10px;
+    }
+
+
+    .prodotto p {
+        font-size: 16px;
+    }
+
+
+    .quantita {
+        gap: 12px;
+    }
+
+
+    .quantita button {
+        width: 47px;
+        height: 47px;
+        min-width: 47px;
+    }
+
+
+    .quantita input {
+        width: 59px;
+        height: 47px;
+    }
+
+
+    .admin-panel {
+        padding: 9px;
+    }
+
+}
+
+
+/* =====================================================
+   SICUREZZA
+===================================================== */
+
+img,
+video,
+iframe,
+table,
+pre {
+
+    max-width: 100%;
+
+}
+
+
+#app,
+#app * {
+
+    min-width: 0;
+
+}
+
+
+.prodotto,
+.admin-panel,
+.box-punto,
+.rigaOrdine {
+
+    overflow: hidden;
+
+}
+
+
+.prodotto *,
+.admin-panel *,
+.box-punto *,
+.rigaOrdine * {
+
+    max-width: 100%;
+
+    overflow-wrap: anywhere;
+
+}
+
+/* =====================================================
+   LISTA PRODOTTI - SEMPRE UNA COLONNA
+===================================================== */
+
+#listaProdotti {
+
+    display: flex;
+
+    flex-direction: column;
+
+    width: 100%;
+
+    gap: 16px;
+
+}
+
+
+/* OGNI PRODOTTO OCCUPA TUTTA LA LARGHEZZA */
+
+#listaProdotti .prodotto {
+
+    width: 100%;
+
+    max-width: 100%;
+
+    margin: 0;
+
+}
+
+
+/* =====================================================
+   MOBILE
+===================================================== */
+
+@media (max-width: 600px) {
+
+    #listaProdotti {
+
+        display: flex;
+
+        flex-direction: column;
+
+        width: 100%;
+
+        gap: 15px;
 
     }
 
+
+    #listaProdotti .prodotto {
+
+        width: 100%;
+
+        max-width: 100%;
+
+    }
 
 }

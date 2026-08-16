@@ -1,0 +1,16 @@
+{
+  "name": "Ordini Tiscali",
+  "short_name": "Ordini Tiscali",
+  "description": "App per la gestione degli ordini Tiscali",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#141414",
+  "theme_color": "#141414",
+  "lang": "it",
+  "categories": [
+    "business",
+    "productivity"
+  ]
+}

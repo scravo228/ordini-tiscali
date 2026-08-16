@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="it">
 
@@ -5,9 +6,28 @@
 
     <meta charset="UTF-8">
 
+    <meta
+        name="viewport"
+        content="width=device-width, initial-scale=1.0"
+    >
+
     <title>Ordini Tiscali</title>
 
-    <link rel="stylesheet" href="style.css">
+    <!-- PWA -->
+    <link
+        rel="manifest"
+        href="./manifest.json"
+    >
+
+    <meta
+        name="theme-color"
+        content="#141414"
+    >
+
+    <link
+        rel="stylesheet"
+        href="style.css"
+    >
 
 </head>
 
@@ -15,7 +35,9 @@
 <body>
 
 
-<!-- LOGIN -->
+<!-- =====================================================
+     LOGIN
+===================================================== -->
 
 <div id="schermataLogin" class="container">
 
@@ -45,16 +67,25 @@
 
     <p id="erroreLogin"></p>
 
-
 </div>
 
 
 
 
-<!-- APP PRINCIPALE -->
+<!-- =====================================================
+     APP PRINCIPALE
+===================================================== -->
 
-<div id="app" class="container" style="display:none;">
+<div
+    id="app"
+    class="container"
+    style="display:none;"
+>
 
+
+    <!-- =================================================
+         TESTATA
+    ================================================== -->
 
     <div class="testata">
 
@@ -65,37 +96,48 @@
 
         <div class="info-ordine">
 
-    <div>
-        🏪 Punto vendita:
+            <div>
 
-        <strong id="puntoVendita">
-            -
-        </strong>
+                🏪 Punto vendita:
+
+                <strong id="puntoVendita">
+                    -
+                </strong>
+
+            </div>
+
+
+            <div>
+
+                📅 Data:
+
+                <strong id="dataOrdine">
+                    -
+                </strong>
+
+            </div>
+
+
+            <button
+                type="button"
+                onclick="esciAccount()"
+                class="btn-esci"
+            >
+
+                🚪 Esci / Cambia account
+
+            </button>
+
+        </div>
+
     </div>
 
-    <div>
-        📅 Data:
-
-        <strong id="dataOrdine">
-            -
-        </strong>
-    </div>
-
-    <button
-        type="button"
-        onclick="esciAccount()"
-        class="btn-esci"
-    >
-        🚪 Esci / Cambia account
-    </button>
-
-</div>
-
-
-    </div>
 
 
 
+    <!-- =================================================
+         EXCEL
+    ================================================== -->
 
     <input
         type="file"
@@ -113,8 +155,11 @@
 
 
 
-    <label class="filtro">
+    <!-- =================================================
+         FILTRO
+    ================================================== -->
 
+    <label class="filtro">
 
         <input
             type="checkbox"
@@ -122,28 +167,39 @@
             onchange="filtraProdotti()"
         >
 
-
         Mostra solo prodotti ordinati
-
 
     </label>
 
 
 
 
+    <!-- =================================================
+         LISTA PRODOTTI
+    ================================================== -->
 
     <div id="listaProdotti"></div>
 
 
 
 
-    <div id="riepilogo" class="riepilogo">
+    <!-- =================================================
+         RIEPILOGO
+    ================================================== -->
+
+    <div
+        id="riepilogo"
+        class="riepilogo"
+    >
 
     </div>
 
 
 
 
+    <!-- =================================================
+         PULSANTI ORDINE
+    ================================================== -->
 
     <button
         class="reset"
@@ -169,7 +225,6 @@
 
 
 
-
     <button
         class="invia"
         onclick="inviaATiscali()"
@@ -180,13 +235,16 @@
     </button>
 
 
-    <button
-    type="button"
-    onclick="mostraMioAccount()"
->
-    👤 Il mio account
-</button>
 
+
+    <button
+        type="button"
+        onclick="mostraMioAccount()"
+    >
+
+        👤 Il mio account
+
+    </button>
 
 
 </div>
@@ -194,7 +252,98 @@
 
 
 
+<!-- =====================================================
+     SCHERMATA INVIO ORDINE
+===================================================== -->
+
+<div
+    id="schermataInvio"
+    class="schermata-invio"
+>
+
+    <div class="box-invio">
+
+        <div class="icona-invio">
+            🛒
+        </div>
+
+
+        <h2>
+            Invio ordine in corso
+        </h2>
+
+
+        <p id="testoInvio">
+            Connessione a Tiscali...
+        </p>
+
+
+        <div class="barra-invio">
+
+            <div
+                id="barraInvio"
+                class="barra-invio-avanzamento"
+            ></div>
+
+        </div>
+
+
+        <p class="attendere-invio">
+
+            ⏳ Attendere, non chiudere questa schermata
+
+        </p>
+
+    </div>
+
+</div>
+
+
+
+
+<!-- =====================================================
+     JAVASCRIPT APP
+===================================================== -->
+
 <script src="app.js"></script>
+
+
+
+
+<!-- =====================================================
+     SERVICE WORKER PWA
+===================================================== -->
+
+<script>
+
+if ("serviceWorker" in navigator) {
+
+    window.addEventListener("load", () => {
+
+        navigator.serviceWorker
+            .register("./service-worker.js")
+            .then(registration => {
+
+                console.log(
+                    "PWA: Service Worker registrato:",
+                    registration.scope
+                );
+
+            })
+            .catch(error => {
+
+                console.error(
+                    "PWA: errore registrazione Service Worker:",
+                    error
+                );
+
+            });
+
+    });
+
+}
+
+</script>
 
 
 </body>

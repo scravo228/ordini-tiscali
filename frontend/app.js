@@ -1,39 +1,125 @@
+// =====================================================
+// VARIABILI GLOBALI
+// =====================================================
 
 let contenutoOrdine = "";
 let schermataOrdineSalvata = "";
 let prodotti = [];
 let ordineId = null;
+
 let puntoVenditaId =
     Number(
         localStorage.getItem("puntoVenditaId")
     ) || null;
-    console.log(
+
+console.log(
     "ID PUNTO VENDITA CARICATO:",
     puntoVenditaId
 );
 
+
 // =====================================================
-// APERTURA ORDINE
+// API
 // =====================================================
+
 const API_URL =
     window.location.hostname === "localhost"
         ? "http://localhost:3000"
         : "https://ordini-tiscali.onrender.com";
-async function apriOrdine() {
-    if (!puntoVenditaId) {
 
-    alert(
-        "Nessun punto vendita collegato. Effettua il login."
-    );
 
-    return;
+// =====================================================
+// CARICA LISTA PRODOTTI ONLINE
+// =====================================================
 
-}
+async function caricaListaOnline() {
 
     try {
 
         const risposta = await fetch(
-    `${API_URL}/ordine/apri`,
+            `${API_URL}/prodotti`
+        );
+
+        const dati = await risposta.json();
+
+        if (!risposta.ok || !dati.successo) {
+
+            throw new Error(
+                dati.errore ||
+                "Errore caricamento lista prodotti"
+            );
+
+        }
+
+        prodotti =
+            dati.prodotti || [];
+
+        // Garantisce che ogni prodotto abbia una quantità
+        prodotti.forEach(
+            prodotto => {
+
+                if (
+                    typeof prodotto.quantita !== "number"
+                ) {
+
+                    prodotto.quantita = 0;
+
+                }
+
+            }
+        );
+
+        console.log(
+            "LISTA PRODOTTI CARICATA ONLINE:",
+            prodotti.length
+        );
+
+        mostraProdotti();
+
+        return true;
+
+    } catch (errore) {
+
+        console.error(
+            "Errore caricamento lista online:",
+            errore
+        );
+
+        prodotti = [];
+
+        mostraProdotti();
+
+        alert(
+            "Impossibile caricare la lista prodotti online."
+        );
+
+        return false;
+
+    }
+
+}
+
+
+// =====================================================
+// APERTURA ORDINE + SINCRONIZZAZIONE
+// =====================================================
+
+async function apriOrdine() {
+
+    if (!puntoVenditaId) {
+
+        alert(
+            "Nessun punto vendita collegato. Effettua il login."
+        );
+
+        return false;
+
+    }
+
+    try {
+
+        const risposta = await fetch(
+            `${API_URL}/ordine/apri`,
             {
                 method: "POST",
 
@@ -47,21 +133,35 @@ async function apriOrdine() {
             }
         );
 
+
         const dati = await risposta.json();
 
-        if (!risposta.ok || !dati.ordineId) {
+
+        if (
+            !risposta.ok ||
+            !dati.ordineId
+        ) {
 
             console.error(
                 "Errore apertura ordine:",
                 dati
             );
 
-            alert("Impossibile aprire l'ordine.");
+            alert(
+                "Impossibile aprire l'ordine."
+            );
 
             return false;
+
         }
 
-        ordineId = dati.ordineId;
+
+        // =================================================
+        // SALVA ID ORDINE
+        // =================================================
+
+        ordineId =
+            dati.ordineId;
 
 
         console.log(
@@ -69,12 +169,96 @@ async function apriOrdine() {
             ordineId
         );
 
+
+        // =================================================
+        // RECUPERA ORDINE DAL DATABASE
+        // =================================================
+
+        const rispostaOrdine =
+            await fetch(
+                `${API_URL}/ordine/${puntoVenditaId}`
+            );
+
+
+        const ordine =
+            await rispostaOrdine.json();
+
+
+        if (
+            !rispostaOrdine.ok ||
+            !ordine
+        ) {
+
+            console.error(
+                "Errore caricamento ordine:",
+                ordine
+            );
+
+            return true;
+
+        }
+
+
+        console.log(
+            "ORDINE RECUPERATO DA SUPABASE:",
+            ordine
+        );
+
+
+        // =================================================
+        // SINCRONIZZA LE QUANTITÀ
+        // =================================================
+
+        if (
+            Array.isArray(ordine.prodotti)
+        ) {
+
+            ordine.prodotti.forEach(
+                prodottoDatabase => {
+
+                    const prodotto =
+                        prodotti.find(
+                            p =>
+                                String(p.codice) ===
+                                String(prodottoDatabase.codice)
+                        );
+
+
+                    if (prodotto) {
+
+                        prodotto.quantita =
+                            Number(
+                                prodottoDatabase.quantita || 0
+                            );
+
+                    }
+
+                }
+            );
+
+        }
+
+
+        // =================================================
+        // AGGIORNA SCHERMATA
+        // =================================================
+
+        mostraProdotti();
+
+
+        console.log(
+            "ORDINE SINCRONIZZATO:",
+            prodotti
+        );
+
+
         return true;
+
 
     } catch (errore) {
 
         console.error(
-            "Errore connessione apertura ordine:",
+            "Errore apertura/sincronizzazione ordine:",
             errore
         );
 
@@ -83,157 +267,26 @@ async function apriOrdine() {
         );
 
         return false;
-    }
-}
-async function mostraMioAccount() {
-
-    if (!schermataOrdineSalvata) {
-
-    schermataOrdineSalvata =
-        document.getElementById("app").innerHTML;
-
-}
-
-    const id =
-        localStorage.getItem(
-            "puntoVenditaId"
-        );
-
-
-    if (!id) {
-
-        alert(
-            "Nessun account collegato."
-        );
-
-        return;
-
-    }
-
-
-    try {
-
-        const risposta =
-    await fetch(
-        `${API_URL}/admin/punti-vendita`,
-    
-    );
-
-
-        const dati =
-            await risposta.json();
-
-
-        const punto =
-            dati.punti.find(
-                p =>
-                    String(p.id) ===
-                    String(id)
-            );
-
-
-        if (!punto) {
-
-            alert(
-                "Account non trovato."
-            );
-
-            return;
-
-        }
-
-
-        document.getElementById(
-            "app"
-        ).innerHTML = `
-
-            <div class="admin-panel">
-
-                <h1>
-                    👤 Il mio account
-                </h1>
-
-
-                <h2>
-                    🏪 ${punto.nome}
-                </h2>
-
-
-                <p>
-                    Codice:
-                    <strong>
-                        ${punto.codice}
-                    </strong>
-                </p>
-
-
-                <input
-                    type="password"
-                    id="mioPassword"
-                    placeholder="Nuova password app"
-                >
-
-
-                <input
-                    type="text"
-                    id="mioTiscaliUser"
-                    placeholder="Username Tiscali"
-                >
-
-
-                <input
-                    type="password"
-                    id="mioTiscaliPassword"
-                    placeholder="Password Tiscali"
-                >
-
-
-                <button
-                    onclick="salvaMioAccount()"
-                >
-                    💾 Salva modifiche
-                </button>
-
-
-                <button
-                    onclick="tornaOrdine()"
-                >
-                    ⬅️ Torna all'ordine
-                </button>
-
-
-                <p id="mioAccountMessaggio"></p>
-
-            </div>
-
-        `;
-
-
-    } catch (errore) {
-
-        console.error(
-            "Errore caricamento account:",
-            errore
-        );
-
-        alert(
-            "Impossibile caricare l'account."
-        );
 
     }
 
 }
+
 
 // =====================================================
 // CARICAMENTO EXCEL
 // =====================================================
 
 async function caricaExcel() {
-    
-    console.log("CARICA EXCEL PREMUTO");
+
+    console.log(
+        "CARICA EXCEL PREMUTO"
+    );
 
     const input =
-        document.getElementById("fileExcel");
+        document.getElementById(
+            "fileExcel"
+        );
 
     const file =
         input.files[0];
@@ -245,6 +298,7 @@ async function caricaExcel() {
         );
 
         return;
+
     }
 
     try {
@@ -258,18 +312,31 @@ async function caricaExcel() {
         );
 
 
-      const risposta = await fetch(
-    `${API_URL}/upload-excel`,
-        {
-            method: "POST",
-            body: formData
-        }
-    );
+        const risposta =
+            await fetch(
+                `${API_URL}/upload-excel`,
+                {
+                    method: "POST",
+                    body: formData
+                }
+            );
 
-const dati =
-    await risposta.json();
-    console.log("RISPOSTA RICEVUTA:", dati);
-console.log("PRODOTTI RICEVUTI:", dati.prodotti?.length);
+
+        const dati =
+            await risposta.json();
+
+
+        console.log(
+            "RISPOSTA RICEVUTA:",
+            dati
+        );
+
+        console.log(
+            "PRODOTTI RICEVUTI:",
+            dati.prodotti?.length
+        );
+
+
         if (
             !risposta.ok ||
             !dati.successo
@@ -281,8 +348,15 @@ console.log("PRODOTTI RICEVUTI:", dati.prodotti?.length);
             );
 
             return;
+
         }
 
+
+        /*
+         * Manteniamo eventuali modifiche locali
+         * al codice prodotto durante il caricamento
+         * di un nuovo Excel.
+         */
 
         const vecchiProdotti =
             JSON.parse(
@@ -293,53 +367,72 @@ console.log("PRODOTTI RICEVUTI:", dati.prodotti?.length);
 
 
         prodotti =
-            dati.prodotti.map(
+            (dati.prodotti || []).map(
                 nuovo => {
 
                     const vecchio =
                         vecchiProdotti.find(
                             p =>
                                 p.codice ===
-                                nuovo.codice
+                                    nuovo.codice ||
+                                p.codiceOriginale ===
+                                    nuovo.codice
                         );
+
+
+                    if (vecchio) {
+
+                        return {
+
+                            ...nuovo,
+
+                            codice:
+                                vecchio.codice,
+
+                            quantita:
+                                vecchio.quantita || 0,
+
+                            codiceOriginale:
+                                vecchio.codiceOriginale ||
+                                nuovo.codice
+
+                        };
+
+                    }
 
 
                     return {
 
                         ...nuovo,
 
-                        quantita:
-                            vecchio
-                                ? vecchio.quantita
-                                : 0
+                        quantita: 0
 
                     };
 
                 }
-            );console.log(
-    "LISTA NUOVA RICEVUTA:",
-    prodotti
-);
-
-console.log(
-    "NUMERO PRODOTTI:",
-    prodotti.length
-);
+            );
 
 
-console.log("ARRAY PRODOTTI:", prodotti);
+        console.log(
+            "LISTA NUOVA RICEVUTA:",
+            prodotti
+        );
 
-        salvaMemoria();
 
-mostraProdotti();
+        console.log(
+            "NUMERO PRODOTTI:",
+            prodotti.length
+        );
 
-//aggiornaRiepilogo();
+
+        mostraProdotti();
 
 
         console.log(
             "Prodotti caricati:",
             prodotti.length
         );
+
 
     } catch (errore) {
 
@@ -353,12 +446,23 @@ mostraProdotti();
         );
 
     }
+
 }
 
-window.testCarica = function () {
-    alert("TEST OK");
-};
-console.log("CARICA EXCEL ESPORTATA");
+
+window.testCarica =
+    function () {
+
+        alert(
+            "TEST OK"
+        );
+
+    };
+
+
+console.log(
+    "CARICA EXCEL ESPORTATA"
+);
 
 
 // =====================================================
@@ -376,7 +480,6 @@ function mostraProdotti() {
         return;
     }
 
-
     lista.innerHTML = "";
 
 
@@ -390,54 +493,239 @@ function mostraProdotti() {
 
 
             div.className =
-                prodotto.quantita > 0
+                Number(prodotto.quantita) > 0
                     ? "prodotto ordinato"
                     : "prodotto";
+
+                    div.dataset.index = index;
 
 
             div.innerHTML = `
 
-                <h3>
-                    ${prodotto.codice}
-                </h3>
+                <div class="codice-prodotto">
+
+                    <strong id="codice-${index}">
+                        ${prodotto.codice}
+                    </strong>
+
+                    <button
+                        type="button"
+                        onclick="modificaCodice(${index})"
+                    >
+                        ✏️
+                    </button>
+
+                </div>
+
 
                 <p>
                     ${prodotto.descrizione}
                 </p>
 
+
                 <small>
                     ${prodotto.unita || ""}
                 </small>
 
+
                 <div class="quantita">
 
-                    <button
-                        onclick="meno(${index})">
-                        -
-                    </button>
+    <button
+        type="button"
+        onclick="meno(${index})"
+    >
+        -
+    </button>
 
-                    <span>
-                        ${prodotto.quantita}
-                    </span>
 
-                    <button
-                        onclick="piu(${index})">
-                        +
-                    </button>
+    <input
+        type="number"
+        min="0"
+        value="${prodotto.quantita || 0}"
+        onchange="modificaQuantita(${index}, this.value)"
+    >
 
-                </div>
+
+    <button
+        type="button"
+        onclick="piu(${index})"
+    >
+        +
+    </button>
+
+</div>
 
             `;
 
 
-            lista.appendChild(div);
+            lista.appendChild(
+                div
+            );
 
         }
     );
 
 
-   // aggiornaRiepilogo();
     aggiornaContatori();
+
+}
+
+
+// =====================================================
+// MODIFICA CODICE PRODOTTO
+// =====================================================
+
+async function modificaCodice(index) {
+
+    const prodotto =
+        prodotti[index];
+
+
+    if (!prodotto) {
+        return;
+    }
+
+
+    const nuovoCodice =
+        prompt(
+            "Modifica codice articolo:",
+            prodotto.codice
+        );
+
+
+    if (nuovoCodice === null) {
+        return;
+    }
+
+
+    const codicePulito =
+        nuovoCodice.trim();
+
+
+    if (!codicePulito) {
+
+        alert(
+            "Il codice non può essere vuoto."
+        );
+
+        return;
+
+    }
+
+
+    // Se il codice non è cambiato
+    if (
+        codicePulito ===
+        String(prodotto.codice)
+    ) {
+
+        return;
+
+    }
+
+
+    const codicePrecedente =
+        prodotto.codice;
+
+
+    try {
+
+        console.log(
+            "Salvataggio nuovo codice:",
+            codicePrecedente,
+            "→",
+            codicePulito
+        );
+
+
+        const risposta =
+            await fetch(
+                `${API_URL}/prodotti/modifica-codice`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        id:
+                            prodotto.id,
+
+                        nuovoCodice:
+                            codicePulito
+
+                    })
+
+                }
+            );
+
+
+        const dati =
+            await risposta.json();
+
+
+        if (
+            !risposta.ok ||
+            !dati.successo
+        ) {
+
+            throw new Error(
+                dati.errore ||
+                "Errore salvataggio codice"
+            );
+
+        }
+
+
+        // =================================================
+        // SALVATAGGIO RIUSCITO
+        // =================================================
+
+        if (!prodotto.codiceOriginale) {
+
+            prodotto.codiceOriginale =
+                codicePrecedente;
+
+        }
+
+
+        prodotto.codice =
+            codicePulito;
+
+
+        console.log(
+            "CODICE SALVATO CORRETTAMENTE:",
+            codicePrecedente,
+            "→",
+            codicePulito
+        );
+
+
+        mostraProdotti();
+
+
+        alert(
+            "✅ Codice prodotto aggiornato."
+        );
+
+
+    } catch (errore) {
+
+        console.error(
+            "Errore modifica codice:",
+            errore
+        );
+
+
+        alert(
+            "❌ Impossibile salvare il nuovo codice."
+        );
+
+    }
+
 }
 
 
@@ -446,7 +734,6 @@ function mostraProdotti() {
 // =====================================================
 
 async function piu(index) {
-
 
     if (!ordineId) {
 
@@ -471,30 +758,46 @@ async function piu(index) {
         prodotti[index];
 
 
-    prodotto.quantita++;
+    if (!prodotto) {
+        return;
+    }
+
+
+    prodotto.quantita =
+        Number(prodotto.quantita || 0) + 1;
 
 
     try {
 
         const risposta =
-    await fetch(
-        `${API_URL}/ordine/prodotto`,
-        {
-            method: "POST",
+            await fetch(
+                `${API_URL}/ordine/prodotto`,
+                {
+                    method: "POST",
 
-            headers: {
-                "Content-Type":
-                    "application/json"
-            },
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
 
-            body: JSON.stringify({
-                ordineId: ordineId,
-                codice: prodotto.codice,
-                descrizione: prodotto.descrizione,
-                quantita: prodotto.quantita
-            })
-        }
-    );
+                    body: JSON.stringify({
+
+                        ordineId:
+                            ordineId,
+
+                        codice:
+                            prodotto.codice,
+
+                        descrizione:
+                            prodotto.descrizione,
+
+                        quantita:
+                            prodotto.quantita
+
+                    })
+                }
+            );
+
 
         const dati =
             await risposta.json();
@@ -514,6 +817,7 @@ async function piu(index) {
 
         mostraProdotti();
 
+
     } catch (errore) {
 
         console.error(
@@ -521,15 +825,19 @@ async function piu(index) {
             errore
         );
 
+
         prodotto.quantita--;
 
+
         mostraProdotti();
+
 
         alert(
             "Impossibile aggiornare l'ordine."
         );
 
     }
+
 }
 
 
@@ -546,6 +854,7 @@ async function meno(index) {
         );
 
         return;
+
     }
 
 
@@ -553,11 +862,18 @@ async function meno(index) {
         prodotti[index];
 
 
-    // ---------------------------------------------
-    // QUANTITÀ MAGGIORE DI 1
-    // ---------------------------------------------
+    if (!prodotto) {
+        return;
+    }
 
-    if (prodotto.quantita > 1) {
+
+    // =================================================
+    // QUANTITÀ MAGGIORE DI 1
+    // =================================================
+
+    if (
+        Number(prodotto.quantita) > 1
+    ) {
 
         prodotto.quantita--;
 
@@ -609,6 +925,7 @@ async function meno(index) {
 
             mostraProdotti();
 
+
         } catch (errore) {
 
             console.error(
@@ -616,9 +933,12 @@ async function meno(index) {
                 errore
             );
 
+
             prodotto.quantita++;
 
+
             mostraProdotti();
+
 
             alert(
                 "Impossibile modificare la quantità."
@@ -628,12 +948,13 @@ async function meno(index) {
 
 
         return;
+
     }
 
 
-    // ---------------------------------------------
+    // =================================================
     // QUANTITÀ = 1 → ELIMINA PRODOTTO
-    // ---------------------------------------------
+    // =================================================
 
     try {
 
@@ -682,6 +1003,7 @@ async function meno(index) {
 
         mostraProdotti();
 
+
     } catch (errore) {
 
         console.error(
@@ -689,11 +1011,281 @@ async function meno(index) {
             errore
         );
 
+
         alert(
             "Impossibile eliminare il prodotto."
         );
 
     }
+
+}
+
+// =====================================================
+// MODIFICA QUANTITÀ MANUALE
+// =====================================================
+
+async function modificaQuantita(index, valore) {
+
+    const prodotto =
+        prodotti[index];
+
+
+    if (!prodotto) {
+        return;
+    }
+
+
+    let nuovaQuantita =
+        Number(valore);
+
+
+    // =================================================
+    // CONTROLLO VALORE
+    // =================================================
+
+    if (
+        !Number.isFinite(nuovaQuantita) ||
+        nuovaQuantita < 0
+    ) {
+
+        alert(
+            "Inserisci una quantità valida."
+        );
+
+        mostraProdotti();
+
+        return;
+
+    }
+
+
+    // Le quantità devono essere numeri interi
+    nuovaQuantita =
+        Math.floor(nuovaQuantita);
+
+
+    const quantitaPrecedente =
+        Number(
+            prodotto.quantita || 0
+        );
+
+
+    // Nessuna modifica
+    if (
+        nuovaQuantita ===
+        quantitaPrecedente
+    ) {
+
+        return;
+
+    }
+
+
+    // =================================================
+    // QUANTITÀ = 0
+    // =================================================
+
+    if (
+        nuovaQuantita === 0
+    ) {
+
+        if (!ordineId) {
+
+            prodotto.quantita = 0;
+
+            mostraProdotti();
+
+            return;
+
+        }
+
+
+        try {
+
+            const risposta =
+                await fetch(
+                    `${API_URL}/ordine/prodotto/elimina`,
+                    {
+                        method: "POST",
+
+                        headers: {
+                            "Content-Type":
+                                "application/json"
+                        },
+
+                        body: JSON.stringify({
+
+                            ordineId:
+                                ordineId,
+
+                            codice:
+                                prodotto.codice
+
+                        })
+
+                    }
+                );
+
+
+            const dati =
+                await risposta.json();
+
+
+            if (!risposta.ok) {
+
+                throw new Error(
+                    dati.errore ||
+                    "Errore eliminazione prodotto"
+                );
+
+            }
+
+
+            prodotto.quantita = 0;
+
+            mostraProdotti();
+
+
+        } catch (errore) {
+
+            console.error(
+                "Errore modifica quantità:",
+                errore
+            );
+
+
+            alert(
+                "❌ Impossibile modificare la quantità."
+            );
+
+
+            mostraProdotti();
+
+        }
+
+
+        return;
+
+    }
+
+
+    // =================================================
+    // ORDINE NON ANCORA APERTO
+    // =================================================
+
+    if (!ordineId) {
+
+        const aperto =
+            await apriOrdine();
+
+
+        if (!aperto) {
+
+            alert(
+                "Impossibile aprire l'ordine."
+            );
+
+            mostraProdotti();
+
+            return;
+
+        }
+
+    }
+
+
+    // =================================================
+    // SALVA NUOVA QUANTITÀ
+    // =================================================
+
+    try {
+
+        const risposta =
+            await fetch(
+                `${API_URL}/ordine/prodotto/modifica`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        ordineId:
+                            ordineId,
+
+                        codice:
+                            prodotto.codice,
+
+                        quantita:
+                            nuovaQuantita
+
+                    })
+
+                }
+            );
+
+
+        const dati =
+            await risposta.json();
+
+
+        if (!risposta.ok) {
+
+            throw new Error(
+                dati.errore ||
+                "Errore modifica quantità"
+            );
+
+        }
+
+
+        // =================================================
+        // AGGIORNA QUANTITÀ LOCALE
+        // =================================================
+
+        prodotto.quantita =
+            nuovaQuantita;
+
+
+        salvaMemoria();
+
+        mostraProdotti();
+
+
+        console.log(
+            "QUANTITÀ MODIFICATA:",
+            prodotto.codice,
+            quantitaPrecedente,
+            "→",
+            nuovaQuantita
+        );
+
+
+    } catch (errore) {
+
+        console.error(
+            "Errore modifica quantità:",
+            errore
+        );
+
+
+        // Ripristina il valore precedente
+        prodotto.quantita =
+            quantitaPrecedente;
+
+
+        mostraProdotti();
+
+
+        alert(
+            "❌ Impossibile modificare la quantità."
+        );
+
+    }
+
 }
 
 
@@ -703,10 +1295,14 @@ async function meno(index) {
 
 function salvaMemoria() {
 
-    localStorage.setItem(
-        "prodottiTiscali",
-        JSON.stringify(prodotti)
-    );
+    /*
+     * La lista principale viene caricata online.
+     *
+     * Questa funzione rimane per compatibilità
+     * con il resto dell'app.
+     *
+     * NON salva la lista nel localStorage.
+     */
 
 }
 
@@ -724,6 +1320,7 @@ async function azzeraOrdine() {
         );
 
         return;
+
     }
 
 
@@ -784,21 +1381,16 @@ async function azzeraOrdine() {
         );
 
 
-        salvaMemoria();
-
         mostraProdotti();
+
 
         ordineId = null;
 
-console.log(
-    "Ordine azzerato e ordineId resettato"
-);
-
 
         console.log(
-            "Ordine azzerato:",
-            ordineId
+            "Ordine azzerato e ordineId resettato"
         );
+
 
     } catch (errore) {
 
@@ -807,67 +1399,99 @@ console.log(
             errore
         );
 
+
         alert(
             "Impossibile azzerare l'ordine."
         );
 
     }
+
 }
 
 
 // =====================================================
-// RICERCA PRODOTTI
+// RICERCA E FILTRO PRODOTTI
 // =====================================================
 
 function filtraProdotti() {
 
-    const testo =
-        document
-            .getElementById("cerca")
-            .value
-            .toLowerCase();
+    console.log("========== FILTRO ==========");
 
+    const checkbox =
+        document.getElementById("soloOrdinati");
+
+    if (!checkbox) {
+        console.error("CHECKBOX soloOrdinati NON TROVATA");
+        return;
+    }
 
     const soloOrdinati =
-        document
-            .getElementById(
-                "soloOrdinati"
-            )
-            .checked;
+        checkbox.checked;
 
+    console.log(
+        "Solo ordinati:",
+        soloOrdinati
+    );
 
-    document
-        .querySelectorAll(
+    const elementi =
+        document.querySelectorAll(
             "#listaProdotti .prodotto"
-        )
-        .forEach(
-            (elemento, index) => {
-
-                const prodotto =
-                    prodotti[index];
-
-
-                const contieneTesto =
-                    elemento.innerText
-                        .toLowerCase()
-                        .includes(testo);
-
-
-                const ordinato =
-                    prodotto.quantita > 0;
-
-
-                elemento.style.display =
-                    contieneTesto &&
-                    (
-                        !soloOrdinati ||
-                        ordinato
-                    )
-                        ? "block"
-                        : "none";
-
-            }
         );
+
+    console.log(
+        "Elementi trovati:",
+        elementi.length
+    );
+
+    elementi.forEach((elemento) => {
+
+        const index =
+            Number(elemento.dataset.index);
+
+        const prodotto =
+            prodotti[index];
+
+        if (!prodotto) {
+
+            elemento.style.display =
+                "none";
+
+            return;
+
+        }
+
+        const quantita =
+            Number(
+                prodotto.quantita || 0
+            );
+
+        console.log(
+            "Prodotto:",
+            prodotto.codice,
+            "quantità:",
+            quantita
+        );
+
+        if (
+            soloOrdinati &&
+            quantita <= 0
+        ) {
+
+            elemento.style.display =
+                "none";
+
+        } else {
+
+            elemento.style.display =
+                "";
+
+        }
+
+    });
+
+    console.log(
+        "========== FINE FILTRO =========="
+    );
 
 }
 
@@ -879,26 +1503,42 @@ function filtraProdotti() {
 function aggiornaContatori() {
 
     const totale =
-        document.getElementById("totaleProdotti");
+        document.getElementById(
+            "totaleProdotti"
+        );
+
 
     const ordinati =
-        document.getElementById("prodottiOrdinati");
+        document.getElementById(
+            "prodottiOrdinati"
+        );
+
 
     const quantita =
-        document.getElementById("quantitaTotale");
+        document.getElementById(
+            "quantitaTotale"
+        );
 
 
-    if (!totale || !ordinati || !quantita) {
+    if (
+        !totale ||
+        !ordinati ||
+        !quantita
+    ) {
+
         return;
+
     }
 
 
-    totale.innerHTML = prodotti.length;
+    totale.innerHTML =
+        prodotti.length;
 
 
     const prodottiOrdinati =
         prodotti.filter(
-            p => Number(p.quantita) > 0
+            p =>
+                Number(p.quantita) > 0
         );
 
 
@@ -908,8 +1548,14 @@ function aggiornaContatori() {
 
     quantita.innerHTML =
         prodottiOrdinati.reduce(
-            (totale, prodotto) =>
-                totale + Number(prodotto.quantita),
+            (
+                totale,
+                prodotto
+            ) =>
+                totale +
+                Number(
+                    prodotto.quantita
+                ),
             0
         );
 
@@ -959,7 +1605,8 @@ async function creaPDF() {
                     },
 
                     body: JSON.stringify({
-                        prodotti: prodotti
+                        prodotti:
+                            prodotti
                     })
                 }
             );
@@ -972,6 +1619,7 @@ async function creaPDF() {
             );
 
             return;
+
         }
 
 
@@ -991,7 +1639,9 @@ async function creaPDF() {
             );
 
 
-        link.href = url;
+        link.href =
+            url;
+
 
         link.download =
             "Ordine_Tiscali.pdf";
@@ -1001,7 +1651,9 @@ async function creaPDF() {
             link
         );
 
+
         link.click();
+
 
         document.body.removeChild(
             link
@@ -1012,6 +1664,7 @@ async function creaPDF() {
             url
         );
 
+
     } catch (errore) {
 
         console.error(
@@ -1019,11 +1672,117 @@ async function creaPDF() {
             errore
         );
 
+
         alert(
             "Impossibile creare il PDF."
         );
 
     }
+
+}
+
+// =====================================================
+// SCHERMATA INVIO ORDINE
+// =====================================================
+
+function mostraSchermataInvio() {
+
+    const schermata =
+        document.getElementById(
+            "schermataInvio"
+        );
+
+    const testo =
+        document.getElementById(
+            "testoInvio"
+        );
+
+    if (!schermata) {
+        return;
+    }
+
+    schermata.style.display =
+        "flex";
+
+    if (testo) {
+
+        testo.innerHTML =
+            "Connessione a Tiscali...";
+
+    }
+
+
+    // Cambia automaticamente il messaggio
+    // mentre il server sta lavorando
+
+    setTimeout(() => {
+
+        if (schermata.style.display === "flex") {
+
+            testo.innerHTML =
+                "Accesso a Tiscali...";
+
+        }
+
+    }, 2500);
+
+
+    setTimeout(() => {
+
+        if (schermata.style.display === "flex") {
+
+            testo.innerHTML =
+                "Ricerca dei prodotti...";
+
+        }
+
+    }, 5000);
+
+
+    setTimeout(() => {
+
+        if (schermata.style.display === "flex") {
+
+            testo.innerHTML =
+                "Inserimento prodotti nel carrello...";
+
+        }
+
+    }, 8000);
+
+
+    setTimeout(() => {
+
+        if (schermata.style.display === "flex") {
+
+            testo.innerHTML =
+                "Quasi terminato...";
+
+        }
+
+    }, 15000);
+
+}
+
+
+// =====================================================
+// NASCONDE SCHERMATA INVIO
+// =====================================================
+
+function nascondiSchermataInvio() {
+
+    const schermata =
+        document.getElementById(
+            "schermataInvio"
+        );
+
+    if (!schermata) {
+        return;
+    }
+
+    schermata.style.display =
+        "none";
+
 }
 
 
@@ -1031,77 +1790,424 @@ async function creaPDF() {
 // INVIO ORDINE REALE A TISCALI
 // =====================================================
 
-
 async function inviaATiscali() {
 
     if (!ordineId) {
-        alert("Nessun ordine aperto.");
+
+        alert(
+            "Nessun ordine aperto."
+        );
+
+        return;
+
+    }
+
+
+   // =================================================
+// SINCRONIZZA LE QUANTITÀ SCRITTE A MANO
+// =================================================
+
+const inputsQuantita =
+    document.querySelectorAll(
+        "#listaProdotti .quantita input[type='number']"
+    );
+
+const aggiornamenti = [];
+
+inputsQuantita.forEach(input => {
+
+    const prodottoElement =
+        input.closest(".prodotto");
+
+    if (!prodottoElement) {
         return;
     }
 
-    const ordinati = prodotti.filter(
-        p => Number(p.quantita) > 0
-    );
+    const index =
+        Number(prodottoElement.dataset.index);
 
-    if (ordinati.length === 0) {
-        alert("Non ci sono prodotti con quantità.");
+    const prodotto =
+        prodotti[index];
+
+    if (!prodotto) {
         return;
     }
 
-    const conferma = confirm(
-        "Inviare l'ordine a Tiscali?\n\n" +
-        "Prodotti: " + ordinati.length
+    let quantita =
+        Number(input.value);
+
+    if (
+        !Number.isFinite(quantita) ||
+        quantita < 0
+    ) {
+        quantita = 0;
+    }
+
+    quantita =
+        Math.floor(quantita);
+
+    const quantitaAttuale =
+        Number(prodotto.quantita || 0);
+
+    // Se non è cambiata non facciamo nulla
+    if (
+        quantita ===
+        quantitaAttuale
+    ) {
+        return;
+    }
+
+    // Aggiorna subito la memoria locale
+    prodotto.quantita =
+        quantita;
+
+
+    // =================================================
+    // SALVA LA QUANTITÀ SUL DATABASE
+    // =================================================
+
+    if (quantita === 0) {
+
+        aggiornamenti.push(
+
+            fetch(
+                `${API_URL}/ordine/prodotto/elimina`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        ordineId:
+                            ordineId,
+
+                        codice:
+                            prodotto.codice
+
+                    })
+                }
+            )
+            .then(async risposta => {
+
+                const dati =
+                    await risposta.json();
+
+                if (!risposta.ok) {
+
+                    throw new Error(
+                        dati.errore ||
+                        "Errore eliminazione prodotto"
+                    );
+
+                }
+
+            })
+
+        );
+
+    } else {
+
+        aggiornamenti.push(
+
+            fetch(
+                `${API_URL}/ordine/prodotto/modifica`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        ordineId:
+                            ordineId,
+
+                        codice:
+                            prodotto.codice,
+
+                        quantita:
+                            quantita
+
+                    })
+                }
+            )
+            .then(async risposta => {
+
+                const dati =
+                    await risposta.json();
+
+                if (!risposta.ok) {
+
+                    throw new Error(
+                        dati.errore ||
+                        "Errore salvataggio quantità"
+                    );
+
+                }
+
+            })
+
+        );
+
+    }
+
+});
+
+
+// =================================================
+// ATTENDE TUTTI I SALVATAGGI
+// =================================================
+
+try {
+
+    await Promise.all(
+        aggiornamenti
     );
+
+} catch (errore) {
+
+    console.error(
+        "Errore sincronizzazione quantità:",
+        errore
+    );
+
+    alert(
+        "❌ Non è stato possibile salvare tutte le quantità dell'ordine."
+    );
+
+    return;
+
+}
+
+
+// =================================================
+// CALCOLA NUOVAMENTE I PRODOTTI ORDINATI
+// =================================================
+
+const ordinati =
+    prodotti.filter(
+        p =>
+            Number(p.quantita) > 0
+    );
+
+
+    console.log("========== CONTROLLO INVIO ==========");
+console.log("ORDINE ID:", ordineId);
+console.log("PRODOTTI:", prodotti);
+console.log("ORDINATI:", ordinati);
+console.log("======================================");
+
+if (ordinati.length === 0) {
+
+    alert(
+        "Non ci sono prodotti con quantità."
+    );
+
+    return;
+
+}
+
+
+    const conferma =
+        confirm(
+            "Inviare l'ordine a Tiscali?\n\n" +
+            "Prodotti: " +
+            ordinati.length
+        );
+
 
     if (!conferma) {
         return;
     }
 
+
+    // Mostra schermata di avanzamento
+mostraSchermataInvio();
+
+
     try {
 
-        console.log("Invio ordine Tiscali:", ordineId);
-
-        const risposta = await fetch(
-            `${API_URL}/ordine/invia-tiscali`,
-            {
-                method: "POST",
-
-                headers: {
-                    "Content-Type": "application/json"
-                },
-
-                body: JSON.stringify({
-                    ordineId: ordineId
-                })
-            }
+        console.log(
+            "Invio ordine Tiscali:",
+            ordineId
         );
 
-        const risultato = await risposta.json();
+
+        const risposta =
+            await fetch(
+                `${API_URL}/ordine/invia-tiscali`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        ordineId:
+                            ordineId
+
+                    })
+                }
+            );
+
+
+        const risultato =
+            await risposta.json();
+
 
         console.log(
             "Risultato invio Tiscali:",
             risultato
         );
 
-        if (!risposta.ok || !risultato.successo) {
+
+        // =================================================
+        // ERRORE GENERALE
+        // =================================================
+
+        if (
+            !risposta.ok &&
+            !risultato.risultati
+        ) {
 
             alert(
                 "❌ Errore durante l'invio.\n\n" +
-                (risultato.errore ||
-                "Uno o più prodotti non sono stati aggiunti.")
+                (
+                    risultato.errore ||
+                    "Errore comunicazione con il server."
+                )
             );
 
+
+            nascondiSchermataInvio();
+
             return;
+
         }
 
-        alert(
-            "✅ Ordine inviato correttamente a Tiscali!\n\n" +
-            "Prodotti inviati: " +
-            risultato.prodottiInviati +
-            "\n" +
+
+        // =================================================
+        // PRODOTTI NON TROVATI
+        // =================================================
+
+        const prodottiNonTrovati =
+            (risultato.risultati || [])
+                .filter(
+                    prodotto =>
+                        prodotto.trovato === false
+                );
+
+
+        // =================================================
+        // PRODOTTI CON ERRORE
+        // =================================================
+
+        const prodottiConErrore =
+            (risultato.risultati || [])
+                .filter(
+                    prodotto =>
+                        prodotto.trovato === true &&
+                        prodotto.aggiunto === false &&
+                        prodotto.modalitaTest !== true
+                );
+
+
+        // =================================================
+        // TUTTO OK
+        // =================================================
+
+        if (
+            risultato.successo &&
+            prodottiNonTrovati.length === 0 &&
+            prodottiConErrore.length === 0
+        ) {
+
+            alert(
+                "✅ Ordine inviato correttamente a Tiscali!\n\n" +
+                "Prodotti inviati: " +
+                risultato.prodottiInviati +
+                "\n" +
+                "Prodotti aggiunti: " +
+                risultato.prodottiAggiunti
+            );
+
+            nascondiSchermataInvio();
+
+            return;
+
+        }
+
+
+        // =================================================
+        // ORDINE PARZIALE
+        // =================================================
+
+        let messaggio =
+            "⚠️ Ordine inviato parzialmente.\n\n";
+
+
+        messaggio +=
             "Prodotti aggiunti: " +
-            risultato.prodottiAggiunti
+            (
+                risultato.prodottiAggiunti ||
+                0
+            );
+
+
+        if (
+            prodottiNonTrovati.length > 0
+        ) {
+
+            messaggio +=
+                "\n\n❌ Prodotti non trovati:\n";
+
+
+            messaggio +=
+                prodottiNonTrovati
+                    .map(
+                        prodotto =>
+                            prodotto.codice
+                    )
+                    .join("\n");
+
+        }
+
+
+        if (
+            prodottiConErrore.length > 0
+        ) {
+
+            messaggio +=
+                "\n\n❌ Errore aggiunta prodotti:\n";
+
+
+            messaggio +=
+                prodottiConErrore
+                    .map(
+                        prodotto =>
+                            prodotto.codice
+                    )
+                    .join("\n");
+
+        }
+
+
+        alert(
+            messaggio
         );
+
+
+        nascondiSchermataInvio();
+
 
     } catch (errore) {
 
@@ -1110,180 +2216,269 @@ async function inviaATiscali() {
             errore
         );
 
+
+        nascondiSchermataInvio();
+
+
         alert(
             "❌ Impossibile collegarsi al server."
         );
+
     }
+
 }
 
-window.inviaATiscali = inviaATiscali;
 
+window.inviaATiscali =
+    inviaATiscali;
+
+
+// =====================================================
+// USCITA ACCOUNT
+// =====================================================
 
 function esciAccount() {
 
-    const conferma = confirm(
-        "Vuoi uscire dall'account e cambiare punto vendita?"
-    );
+    const conferma =
+        confirm(
+            "Vuoi uscire dall'account e cambiare punto vendita?"
+        );
+
 
     if (!conferma) {
         return;
     }
 
-    localStorage.removeItem("puntoVendita");
-    localStorage.removeItem("puntoVenditaId");
+
+    localStorage.removeItem(
+        "puntoVendita"
+    );
+
+
+    localStorage.removeItem(
+        "puntoVenditaId"
+    );
+
+
+    localStorage.removeItem(
+        "puntoVenditaNome"
+    );
+
+
+    localStorage.removeItem(
+        "ruolo"
+    );
+
 
     document.getElementById(
         "app"
     ).style.display = "none";
+
 
     document.getElementById(
         "schermataLogin"
     ).style.display = "block";
 
 }
+
 
 // =====================================================
 // AVVIO APP
 // =====================================================
 
-window.onload = async function () {
+window.onload =
+    async function () {
 
-    console.log(
-        "Avvio Ordini Tiscali..."
-    );
-const utente =
-    localStorage.getItem("puntoVendita");
-
-if (utente) {
-
-    const dati =
-        JSON.parse(utente);
-
-    document.getElementById(
-        "schermataLogin"
-    ).style.display = "none";
-
-
-    document.getElementById(
-        "app"
-    ).style.display = "block";
-
-
-    document.getElementById(
-        "puntoVendita"
-    ).innerHTML =
-        dati.nome;
-
-}
-    const utenteSalvato =
-    localStorage.getItem("puntoVendita");
-
-if (utenteSalvato) {
-
-    const dati =
-        JSON.parse(utenteSalvato);
-
-    document.getElementById(
-        "schermataLogin"
-    ).style.display = "none";
-
-
-    document.getElementById(
-        "app"
-    ).style.display = "block";
-
-
-    document.getElementById(
-        "puntoVendita"
-    ).innerHTML =
-        dati.nome;
-
-}
-
-
-    // 1. Recupera la lista salvata
-
-    const salvati =
-        localStorage.getItem(
-            "prodottiTiscali"
+        console.log(
+            "Avvio Ordini Tiscali..."
         );
 
 
-    if (salvati) {
+        const utente =
+            localStorage.getItem(
+                "puntoVendita"
+            );
+
+
+        // =================================================
+        // NESSUN LOGIN
+        // =================================================
+
+        if (!utente) {
+
+            console.log(
+                "Nessun account salvato."
+            );
+
+            return;
+
+        }
+
+
+        // =================================================
+        // RECUPERA ACCOUNT
+        // =================================================
 
         try {
 
-            prodotti =
+            const dati =
                 JSON.parse(
-                    salvati
+                    utente
                 );
+
+
+            document.getElementById(
+                "schermataLogin"
+            ).style.display = "none";
+
+
+            document.getElementById(
+                "app"
+            ).style.display = "block";
+
+
+            const puntoVendita =
+                document.getElementById(
+                    "puntoVendita"
+                );
+
+
+            if (puntoVendita) {
+
+                puntoVendita.innerHTML =
+                    dati.nome || "";
+
+            }
+
+
+            // =================================================
+            // AMMINISTRATORE
+            // =================================================
+
+            if (
+                dati.ruolo ===
+                "amministratore"
+            ) {
+
+                localStorage.setItem(
+                    "amministratoreId",
+                    dati.amministratoreId
+                );
+
+
+                document.getElementById(
+                    "app"
+                ).style.display = "block";
+
+
+                mostraAdmin();
+
+
+                return;
+
+            }
+
+
+            // =================================================
+            // CARICA LISTA
+            // =================================================
+
+            await caricaListaOnline();
+
+
+            // =================================================
+            // APRE ORDINE
+            // =================================================
+
+            await apriOrdine();
+
 
         } catch (errore) {
 
             console.error(
-                "Errore lettura lista salvata:",
+                "Errore avvio app:",
                 errore
             );
 
-            prodotti = [];
+            localStorage.removeItem(
+                "puntoVendita"
+            );
+
+            localStorage.removeItem(
+                "puntoVenditaId"
+            );
+
+            document.getElementById(
+                "app"
+            ).style.display = "none";
+
+
+            document.getElementById(
+                "schermataLogin"
+            ).style.display = "block";
 
         }
 
-    }
+    };
 
 
-    // 2. Mostra subito la lista
-
-    mostraProdotti();
-
-
-    // 3. Apre l'ordine
-
-    await apriOrdine();
-
-};
-
+// =====================================================
+// LOGIN
+// =====================================================
 
 async function effettuaLogin() {
 
     const codice =
-        document.getElementById("codiceLogin").value.trim();
+        document.getElementById(
+            "codiceLogin"
+        ).value.trim();
 
 
     const password =
-        document.getElementById("passwordLogin").value.trim();
+        document.getElementById(
+            "passwordLogin"
+        ).value.trim();
 
 
-    const errore =
-        document.getElementById("erroreLogin");
+    const elementoErrore =
+        document.getElementById(
+            "erroreLogin"
+        );
 
 
     try {
 
-        const risposta = await fetch(
-            `${API_URL}/login`,
-            {
-                method: "POST",
+        const risposta =
+            await fetch(
+                `${API_URL}/login`,
+                {
+                    method: "POST",
 
-                headers: {
-                    "Content-Type": "application/json"
-                },
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
 
-                body: JSON.stringify({
-                    codice,
-                    password
-                })
-            }
-        );
+                    body: JSON.stringify({
+
+                        codice,
+                        password
+
+                    })
+                }
+            );
 
 
         const dati =
             await risposta.json();
 
 
-        if (!dati.successo) {
+        if (
+            !risposta.ok ||
+            !dati.successo
+        ) {
 
-            errore.innerHTML =
+            elementoErrore.innerHTML =
                 "❌ Codice o password errati";
 
             return;
@@ -1291,100 +2486,139 @@ async function effettuaLogin() {
         }
 
 
-        // salvo il punto vendita sul telefono
+        // =================================================
+        // SALVA PUNTO VENDITA
+        // =================================================
 
         localStorage.setItem(
             "puntoVenditaId",
             dati.puntoVenditaId
         );
+
+
         puntoVenditaId =
-    Number(dati.puntoVenditaId);
+            Number(
+                dati.puntoVenditaId
+            );
+
+
         console.log(
-    "ID PUNTO VENDITA SALVATO:",
-    dati.puntoVenditaId
-);
+            "ID PUNTO VENDITA SALVATO:",
+            dati.puntoVenditaId
+        );
 
 
         localStorage.setItem(
             "puntoVenditaNome",
             dati.nome
-            );
+        );
+
+
+        localStorage.setItem(
+            "ruolo",
+            dati.ruolo
+        );
+
+
+        localStorage.setItem(
+            "puntoVendita",
+            JSON.stringify(
+                dati
+            )
+        );
+
+
+        // =================================================
+        // NASCONDE LOGIN
+        // =================================================
+
+        document.getElementById(
+            "schermataLogin"
+        ).style.display = "none";
+
+
+        // =================================================
+        // AMMINISTRATORE
+        // =================================================
+
+        if (
+            dati.ruolo ===
+            "amministratore"
+        ) {
+
             localStorage.setItem(
-    "ruolo",
-    dati.ruolo
-);
-        
+                "amministratoreId",
+                dati.amministratoreId
+            );
 
 
-
-        // nascondo login
-
-document.getElementById(
-    "schermataLogin"
-).style.display = "none";
+            console.log(
+                "ID AMMINISTRATORE SALVATO:",
+                dati.amministratoreId
+            );
 
 
-// salvo ruolo
-
-localStorage.setItem(
-    "ruolo",
-    dati.ruolo
-);
-
-localStorage.setItem(
-    "puntoVendita",
-    JSON.stringify(dati)
-);
-
-// controllo tipo account
-
-if (dati.ruolo === "amministratore") {
-
-    // salvo l'ID dell'amministratore
-    localStorage.setItem(
-        "amministratoreId",
-        dati.amministratoreId
-    );
-
-    console.log(
-        "ID AMMINISTRATORE SALVATO:",
-        dati.amministratoreId
-    );
-
-    document.getElementById(
-        "app"
-    ).style.display = "none";
-
-    mostraAdmin();
-
-} else {
+            document.getElementById(
+                "app"
+            ).style.display = "block";
 
 
-    // mostro app ordine normale
-
-    document.getElementById(
-        "app"
-    ).style.display = "block";
-
-    contenutoOrdine =
-    document.getElementById("app").innerHTML;
-
-    console.log("CONTENUTO SALVATO:", contenutoOrdine);
+            mostraAdmin();
 
 
-    document.getElementById(
-        "puntoVendita"
-    ).innerHTML =
-        dati.nome;
+            console.log(
+                "Login amministratore effettuato:",
+                dati
+            );
 
 
-}
+            return;
+
+        }
 
 
-console.log(
-    "Login effettuato:",
-    dati
-);
+        // =================================================
+        // UTENTE NORMALE
+        // =================================================
+
+        document.getElementById(
+            "app"
+        ).style.display = "block";
+
+
+        contenutoOrdine =
+            document.getElementById(
+                "app"
+            ).innerHTML;
+
+
+        const puntoVendita =
+            document.getElementById(
+                "puntoVendita"
+            );
+
+
+        if (puntoVendita) {
+
+            puntoVendita.innerHTML =
+                dati.nome;
+
+        }
+
+
+        console.log(
+            "Login effettuato:",
+            dati
+        );
+
+
+        // =================================================
+        // CARICA LISTA E ORDINE
+        // =================================================
+
+        await caricaListaOnline();
+
+        await apriOrdine();
 
 
     } catch (errore) {
@@ -1395,12 +2629,18 @@ console.log(
         );
 
 
-        errore.innerHTML =
+        elementoErrore.innerHTML =
             "Errore collegamento server";
 
     }
 
 }
+
+
+// =====================================================
+// PANNELLO AMMINISTRATORE
+// =====================================================
+
 function mostraAdmin() {
 
     document.getElementById(
@@ -1414,59 +2654,86 @@ function mostraAdmin() {
         </h1>
 
 
-        <h2>
-            Crea nuovo punto vendita
-        </h2>
+        <!-- USCITA -->
 
-
-        <input
-            id="adminNome"
-            placeholder="Nome punto vendita"
+        <button
+            type="button"
+            class="btn-esci-admin"
+            onclick="esciAccount()"
         >
-
-
-        <input
-            id="adminCodice"
-            placeholder="Codice accesso"
-        >
-
-
-        <input
-            id="adminPassword"
-            placeholder="Password app"
-        >
-
-
-        <input
-            id="adminTiscaliUser"
-            placeholder="Username Tiscali"
-        >
-
-
-        <input
-            id="adminTiscaliPassword"
-            placeholder="Password Tiscali"
-        >
-
-
-        <button onclick="creaNuovoPuntoVendita()">
-
-            ➕ Crea account
-
+            🚪 Esci / Cambia account
         </button>
 
 
-        <p id="adminMessaggio"></p>
+        <!-- CREAZIONE PUNTO VENDITA -->
+
+        <div class="admin-sezione">
+
+            <h2>
+                ➕ Nuovo punto vendita
+            </h2>
 
 
-        <h2>
-            🏪 Punti vendita
-        </h2>
+            <input
+                id="adminNome"
+                placeholder="Nome punto vendita"
+            >
 
 
-        <div id="listaPuntiVenditaAdmin">
+            <input
+                id="adminCodice"
+                placeholder="Codice accesso"
+            >
 
-            Caricamento...
+
+            <input
+                id="adminPassword"
+                type="password"
+                placeholder="Password app"
+            >
+
+
+            <input
+                id="adminTiscaliUser"
+                placeholder="Username Tiscali"
+            >
+
+
+            <input
+                id="adminTiscaliPassword"
+                type="password"
+                placeholder="Password Tiscali"
+            >
+
+
+            <button
+                type="button"
+                class="btn-admin-crea"
+                onclick="creaNuovoPuntoVendita()"
+            >
+                ➕ Crea account
+            </button>
+
+
+            <p id="adminMessaggio"></p>
+
+        </div>
+
+
+        <!-- LISTA PUNTI VENDITA -->
+
+        <div class="admin-sezione">
+
+            <h2>
+                🏪 Punti vendita
+            </h2>
+
+
+            <div id="listaPuntiVenditaAdmin">
+
+                Caricamento...
+
+            </div>
 
         </div>
 
@@ -1484,16 +2751,19 @@ function mostraAdmin() {
     caricaPuntiVenditaAdmin();
 
 }
-async function caricaPuntiVenditaAdmin() {
 
+
+// =====================================================
+// CARICA PUNTI VENDITA ADMIN
+// =====================================================
+
+async function caricaPuntiVenditaAdmin() {
 
     try {
 
-
         const risposta =
-            
             await fetch(
-                `${API_URL}/admin/punti-vendita`,
+                `${API_URL}/admin/punti-vendita`
             );
 
 
@@ -1502,9 +2772,7 @@ async function caricaPuntiVenditaAdmin() {
 
 
         if (!dati.successo) {
-
             return;
-
         }
 
 
@@ -1514,19 +2782,24 @@ async function caricaPuntiVenditaAdmin() {
             );
 
 
-        contenitore.innerHTML = "";
+        if (!contenitore) {
+            return;
+        }
+
+
+        contenitore.innerHTML =
+            "";
 
 
         dati.punti.forEach(
             punto => {
-
 
                 contenitore.innerHTML += `
 
 <div class="box-punto">
 
     🏪 <strong>
-    ${punto.nome}
+        ${punto.nome}
     </strong>
 
     <br>
@@ -1539,56 +2812,59 @@ async function caricaPuntiVenditaAdmin() {
     Stato:
     ${
         punto.attivo
-        ? "🟢 Attivo"
-        : "🔴 Disattivo"
+            ? "🟢 Attivo"
+            : "🔴 Disattivo"
     }
 
     <br><br>
-    <button onclick="apriModificaPuntoVendita(${punto.id})">
 
-    ✏️ Modifica
 
-</button>
+    <button
+        onclick="apriModificaPuntoVendita(${punto.id})"
+    >
+        ✏️ Modifica
+    </button>
+
 
     ${
         punto.attivo
-        ?
-        `
-        <button onclick="disattivaPuntoVendita(${punto.id})">
-
-            🔴 Disattiva
-
-        </button>
-        `
-        :
-        ""
+            ?
+            `
+            <button
+                onclick="disattivaPuntoVendita(${punto.id})"
+            >
+                🔴 Disattiva
+            </button>
+            `
+            :
+            ""
     }
+
+
     ${
-    !punto.attivo
-    ?
-    `
-    <button onclick="riattivaPuntoVendita(${punto.id})">
-
-        🟢 Riattiva
-
-    </button>
-    `
-    :
-    ""
-}
+        !punto.attivo
+            ?
+            `
+            <button
+                onclick="riattivaPuntoVendita(${punto.id})"
+            >
+                🟢 Riattiva
+            </button>
+            `
+            :
+            ""
+    }
 
 
 </div>
 
 `;
 
-
             }
         );
 
 
     } catch (errore) {
-
 
         console.error(
             "Errore caricamento punti:",
@@ -1598,6 +2874,12 @@ async function caricaPuntiVenditaAdmin() {
     }
 
 }
+
+
+// =====================================================
+// CREA NUOVO PUNTO VENDITA
+// =====================================================
+
 async function creaNuovoPuntoVendita() {
 
     const nome =
@@ -1630,32 +2912,24 @@ async function creaNuovoPuntoVendita() {
         ).value;
 
 
-
     const amministratoreId =
-    localStorage.getItem(
-        "amministratoreId"
-    );
-        
-
+        localStorage.getItem(
+            "amministratoreId"
+        );
 
 
     try {
-
 
         const risposta =
             await fetch(
                 `${API_URL}/admin/crea-punto-vendita`,
                 {
-
                     method: "POST",
 
                     headers: {
-
                         "Content-Type":
                             "application/json"
-
                     },
-
 
                     body: JSON.stringify({
 
@@ -1677,27 +2951,27 @@ async function creaNuovoPuntoVendita() {
             );
 
 
-
         const dati =
             await risposta.json();
 
 
-
-        if (!risposta.ok || !dati.successo) {
-
+        if (
+            !risposta.ok ||
+            !dati.successo
+        ) {
 
             document.getElementById(
                 "adminMessaggio"
             ).innerHTML =
                 "❌ " +
-                (dati.errore ||
-                "Errore creazione account");
-
+                (
+                    dati.errore ||
+                    "Errore creazione account"
+                );
 
             return;
 
         }
-
 
 
         document.getElementById(
@@ -1706,16 +2980,16 @@ async function creaNuovoPuntoVendita() {
             "✅ Punto vendita creato!";
 
 
-
         console.log(
             "Nuovo punto vendita:",
             dati
         );
 
 
+        caricaPuntiVenditaAdmin();
+
 
     } catch (errore) {
-
 
         console.error(
             "Errore creazione punto vendita:",
@@ -1728,12 +3002,16 @@ async function creaNuovoPuntoVendita() {
         ).innerHTML =
             "❌ Errore collegamento server";
 
-
     }
 
 }
-async function disattivaPuntoVendita(id) {
 
+
+// =====================================================
+// DISATTIVA PUNTO VENDITA
+// =====================================================
+
+async function disattivaPuntoVendita(id) {
 
     if (
         !confirm(
@@ -1748,25 +3026,19 @@ async function disattivaPuntoVendita(id) {
 
     try {
 
-
         const risposta =
             await fetch(
-               `${API_URL}/admin/disattiva-punto-vendita`,
+                `${API_URL}/admin/disattiva-punto-vendita`,
                 {
+                    method: "POST",
 
-                    method:"POST",
-
-                    headers:{
-
+                    headers: {
                         "Content-Type":
-                        "application/json"
-
+                            "application/json"
                     },
 
-                    body:JSON.stringify({
-
-                        id:id
-
+                    body: JSON.stringify({
+                        id: id
                     })
 
                 }
@@ -1783,6 +3055,7 @@ async function disattivaPuntoVendita(id) {
                 "Punto vendita disattivato"
             );
 
+
             caricaPuntiVenditaAdmin();
 
         }
@@ -1790,89 +3063,176 @@ async function disattivaPuntoVendita(id) {
 
     } catch (errore) {
 
-
         console.error(
             errore
         );
 
+    }
+
+}
+
+
+// =====================================================
+// RIATTIVA PUNTO VENDITA
+// =====================================================
+
+async function riattivaPuntoVendita(id) {
+
+    try {
+
+        const risposta =
+            await fetch(
+                `${API_URL}/admin/riattiva-punto-vendita`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+                        id: id
+                    })
+
+                }
+            );
+
+
+        const dati =
+            await risposta.json();
+
+
+        if (dati.successo) {
+
+            alert(
+                "✅ Punto vendita riattivato"
+            );
+
+
+            caricaPuntiVenditaAdmin();
+
+        }
+
+
+    } catch (errore) {
+
+        console.error(
+            "Errore riattivazione:",
+            errore
+        );
 
     }
 
 }
+
+
+// =====================================================
+// MODIFICA PUNTO VENDITA
+// =====================================================
+
 async function apriModificaPuntoVendita(id) {
 
-    const risposta =
-        await fetch(
-           `${API_URL}/admin/punti-vendita`,
+    try {
+
+        const risposta =
+            await fetch(
+                `${API_URL}/admin/punti-vendita`
+            );
+
+
+        const dati =
+            await risposta.json();
+
+
+        const punto =
+            dati.punti.find(
+                p =>
+                    p.id === id
+            );
+
+
+        if (!punto) {
+            return;
+        }
+
+
+        document.getElementById(
+            "app"
+        ).innerHTML = `
+
+            <h1>
+                ✏️ Modifica punto vendita
+            </h1>
+
+
+            <input
+                id="modNome"
+                value="${punto.nome}"
+            >
+
+
+            <input
+                id="modCodice"
+                value="${punto.codice}"
+            >
+
+
+            <input
+                id="modPassword"
+                placeholder="Nuova password"
+            >
+
+
+            <input
+                id="modTiscaliUser"
+                placeholder="Username Tiscali"
+            >
+
+
+            <input
+                id="modTiscaliPassword"
+                placeholder="Password Tiscali"
+            >
+
+
+            <button
+                onclick="salvaModificaPuntoVendita(${id})"
+            >
+                💾 Salva
+            </button>
+
+
+            <button
+                onclick="mostraAdmin()"
+            >
+                ⬅️ Indietro
+            </button>
+
+        `;
+
+
+    } catch (errore) {
+
+        console.error(
+            "Errore apertura modifica:",
+            errore
         );
 
-    const dati =
-        await risposta.json();
-
-    const punto =
-        dati.punti.find(
-            p => p.id === id
+        alert(
+            "Errore caricamento punto vendita."
         );
-
-
-    if (!punto) {
-
-        return;
 
     }
 
-
-    document.getElementById(
-        "app"
-    ).innerHTML = `
-
-        <h1>
-            ✏️ Modifica punto vendita
-        </h1>
-
-        <input id="modNome" value="${punto.nome}">
-
-
-    <input id="modCodice"
-    value="${punto.codice}"
-    >
-
-
-    <input id="modPassword"
-    placeholder="Nuova password"
-    >
-
-
-    <input id="modTiscaliUser"
-    placeholder="Username Tiscali"
-    >
-
-
-    <input id="modTiscaliPassword"
-    placeholder="Password Tiscali"
-    >
-
-
-    <button onclick="salvaModificaPuntoVendita(${id})">
-
-        💾 Salva
-
-    </button>
-
-
-    <button onclick="mostraAdmin()">
-
-        ⬅️ Indietro
-
-    </button>
-
-
-    `;
-
-
 }
-async function salvaModificaPuntoVendita(id) {
 
+
+// =====================================================
+// SALVA MODIFICA PUNTO VENDITA
+// =====================================================
+
+async function salvaModificaPuntoVendita(id) {
 
     const nome =
         document.getElementById(
@@ -1904,23 +3264,20 @@ async function salvaModificaPuntoVendita(id) {
         ).value;
 
 
-
     try {
-
 
         const risposta =
             await fetch(
                 `${API_URL}/admin/modifica-punto-vendita`,
                 {
+                    method: "POST",
 
-                    method:"POST",
-
-                    headers:{
+                    headers: {
                         "Content-Type":
-                        "application/json"
+                            "application/json"
                     },
 
-                    body:JSON.stringify({
+                    body: JSON.stringify({
 
                         id,
 
@@ -1940,14 +3297,11 @@ async function salvaModificaPuntoVendita(id) {
             );
 
 
-
         const dati =
             await risposta.json();
 
 
-
         if (dati.successo) {
-
 
             alert(
                 "✅ Account modificato"
@@ -1959,18 +3313,14 @@ async function salvaModificaPuntoVendita(id) {
 
         } else {
 
-
             alert(
                 "❌ Errore modifica"
             );
 
-
         }
 
 
-
     } catch (errore) {
-
 
         console.error(
             "Errore modifica:",
@@ -1985,117 +3335,12 @@ async function salvaModificaPuntoVendita(id) {
     }
 
 }
-async function mostraMioAccount() {
-
-    const id =
-        localStorage.getItem(
-            "puntoVenditaId"
-        );
 
 
-    if (!id) {
+// =====================================================
+// MIO ACCOUNT
+// =====================================================
 
-        alert(
-            "Nessun account collegato."
-        );
-
-        return;
-
-    }
-
-
-    document.getElementById(
-        "app"
-    ).innerHTML = `
-
-    <div class="admin-panel">
-
-        <h1>
-            👤 Il mio account
-        </h1>
-
-
-        <input
-            type="password"
-            id="mioPassword"
-            placeholder="Nuova password app"
-        >
-
-
-        <input
-            type="text"
-            id="mioTiscaliUser"
-            placeholder="Username Tiscali"
-        >
-
-
-        <input
-            type="password"
-            id="mioTiscaliPassword"
-            placeholder="Password Tiscali"
-        >
-
-
-        <button onclick="salvaMioAccount()">
-
-            💾 Salva modifiche
-
-        </button>
-
-
-        <button onclick="ricaricaOrdine()">
-
-            ⬅️ Torna ordine
-
-        </button>
-
-
-    </div>
-
-    `;
-
-}
-async function riattivaPuntoVendita(id) {
-
-
-    const risposta =
-        await fetch(
-            `${API_URL}/admin/riattiva-punto-vendita`,
-            {
-
-                method:"POST",
-
-                headers:{
-                    "Content-Type":
-                    "application/json"
-                },
-
-                body:JSON.stringify({
-
-                    id:id
-
-                })
-
-            }
-        );
-
-
-    const dati =
-        await risposta.json();
-
-
-    if (dati.successo) {
-
-        alert(
-            "✅ Punto vendita riattivato"
-        );
-
-
-        caricaPuntiVenditaAdmin();
-
-    }
-
-}
 async function mostraMioAccount() {
 
     const id =
@@ -2146,9 +3391,7 @@ async function mostraMioAccount() {
             "app"
         ).innerHTML = `
 
-
         <div class="admin-panel">
-
 
             <h1>
                 👤 Il mio account
@@ -2168,7 +3411,6 @@ async function mostraMioAccount() {
             </p>
 
 
-
             <label>
                 Nuova password app
             </label>
@@ -2179,7 +3421,6 @@ async function mostraMioAccount() {
                 id="mioPassword"
                 placeholder="Lascia vuoto per non cambiare"
             >
-
 
 
             <label>
@@ -2194,7 +3435,6 @@ async function mostraMioAccount() {
             >
 
 
-
             <label>
                 Password Tiscali
             </label>
@@ -2207,35 +3447,31 @@ async function mostraMioAccount() {
             >
 
 
-
             <br><br>
 
 
-            <button onclick="salvaMioAccount()">
-
+            <button
+                onclick="salvaMioAccount()"
+            >
                 💾 Salva modifiche
-
             </button>
 
 
-            <button onclick="tornaOrdine()">
-
+            <button
+                onclick="tornaOrdine()"
+            >
                 ⬅️ Torna ordine
-
             </button>
 
 
             <p id="messaggioAccount"></p>
 
-
         </div>
-
 
         `;
 
 
     } catch (errore) {
-
 
         console.error(
             "Errore caricamento account:",
@@ -2250,8 +3486,13 @@ async function mostraMioAccount() {
     }
 
 }
-async function salvaMioAccount() {
 
+
+// =====================================================
+// SALVA MIO ACCOUNT
+// =====================================================
+
+async function salvaMioAccount() {
 
     const id =
         localStorage.getItem(
@@ -2259,66 +3500,102 @@ async function salvaMioAccount() {
         );
 
 
-    const risposta =
-        await fetch(
-            `${API_URL}/account/modifica`,
-            {
-
-                method:"POST",
-
-                headers:{
-                    "Content-Type":
-                    "application/json"
-                },
-
-                body:JSON.stringify({
-
-                    id:id,
-
-                    password:
-                    document.getElementById(
-                        "mioPassword"
-                    ).value,
+    const password =
+        document.getElementById(
+            "mioPassword"
+        ).value;
 
 
-                    tiscaliUsername:
-                    document.getElementById(
-                        "mioTiscaliUsername"
-                    ).value,
+    const tiscaliUsername =
+        document.getElementById(
+            "mioTiscaliUsername"
+        ).value;
 
 
-                    tiscaliPassword:
-                    document.getElementById(
-                        "mioTiscaliPassword"
-                    ).value
+    const tiscaliPassword =
+        document.getElementById(
+            "mioTiscaliPassword"
+        ).value;
 
-                })
+
+    try {
+
+        const risposta =
+            await fetch(
+                `${API_URL}/account/modifica`,
+                {
+                    method: "POST",
+
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+
+                    body: JSON.stringify({
+
+                        id,
+
+                        password,
+
+                        tiscaliUsername,
+
+                        tiscaliPassword
+
+                    })
+
+                }
+            );
+
+
+        const dati =
+            await risposta.json();
+
+
+        if (dati.successo) {
+
+            const messaggio =
+                document.getElementById(
+                    "messaggioAccount"
+                );
+
+
+            if (messaggio) {
+
+                messaggio.innerHTML =
+                    "✅ Account aggiornato";
 
             }
+
+
+        } else {
+
+            alert(
+                "Errore aggiornamento account"
+            );
+
+        }
+
+
+    } catch (errore) {
+
+        console.error(
+            "Errore aggiornamento account:",
+            errore
         );
 
 
-    const dati =
-        await risposta.json();
-
-
-    if(dati.successo){
-
-        document.getElementById(
-            "messaggioAccount"
-        ).innerHTML =
-            "✅ Account aggiornato";
-
-    } else {
-
         alert(
-            "Errore aggiornamento account"
+            "Errore collegamento server"
         );
 
     }
 
 }
 
+
+// =====================================================
+// TORNA ALL'ORDINE
+// =====================================================
 
 function tornaOrdine() {
 
@@ -2327,20 +3604,73 @@ function tornaOrdine() {
 }
 
 
+// =====================================================
+// ESPORTAZIONI GLOBALI
+// =====================================================
 
 window.creaNuovoPuntoVendita =
     creaNuovoPuntoVendita;
 
-
-window.effettuaLogin = effettuaLogin;
-
-
-// Rende disponibile il pulsante HTML
+window.effettuaLogin =
+    effettuaLogin;
 
 window.inviaATiscali =
     inviaATiscali;
 
-window.caricaExcel = caricaExcel;
+window.caricaExcel =
+    caricaExcel;
 
-console.log("APP JS CARICATO FINO ALLA FINE");
+window.modificaCodice =
+    modificaCodice;
+
+window.piu =
+    piu;
+
+window.meno =
+    meno;
+
+window.azzeraOrdine =
+    azzeraOrdine;
+
+window.filtraProdotti =
+    filtraProdotti;
+
+window.vaiAlRiepilogo =
+    vaiAlRiepilogo;
+
+window.creaPDF =
+    creaPDF;
+
+window.esciAccount =
+    esciAccount;
+
+window.mostraMioAccount =
+    mostraMioAccount;
+
+window.salvaMioAccount =
+    salvaMioAccount;
+
+window.tornaOrdine =
+    tornaOrdine;
+
+window.apriModificaPuntoVendita =
+    apriModificaPuntoVendita;
+
+window.salvaModificaPuntoVendita =
+    salvaModificaPuntoVendita;
+
+window.disattivaPuntoVendita =
+    disattivaPuntoVendita;
+
+window.riattivaPuntoVendita =
+    riattivaPuntoVendita;
+
+    window.modificaQuantita =
+    modificaQuantita;
+
+
+console.log(
+    "APP JS CARICATO FINO ALLA FINE"
+);
+
 
