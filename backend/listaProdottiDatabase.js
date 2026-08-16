@@ -37,6 +37,49 @@ function getListaProdotti(callback) {
 
 }
 
+function modificaCodiceProdotto(
+    id,
+    nuovoCodice,
+    callback
+) {
+
+    supabase
+        .from("lista_prodotti")
+        .update({
+            codice: nuovoCodice
+        })
+        .eq("id", id)
+        .then(({ data, error }) => {
+
+            if (error) {
+
+                callback(
+                    error,
+                    null
+                );
+
+                return;
+
+            }
+
+            callback(
+                null,
+                data
+            );
+
+        })
+        .catch((err) => {
+
+            callback(
+                err,
+                null
+            );
+
+        });
+
+}
+
+
 
 // =====================================================
 // SOSTITUISCE TUTTA LA LISTA PRODOTTI

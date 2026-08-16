@@ -198,6 +198,58 @@ app.get("/prodotti", (req, res) => {
 
 });
 
+// =====================================================
+// MODIFICA CODICE PRODOTTO
+// =====================================================
+
+app.post("/prodotti/modifica-codice", (req, res) => {
+
+    const {
+        id,
+        nuovoCodice
+    } = req.body;
+
+
+    if (!id || !nuovoCodice) {
+
+        return res.status(400).json({
+            successo: false,
+            errore: "ID prodotto o nuovo codice mancanti"
+        });
+
+    }
+
+
+    listaProdotti.modificaCodiceProdotto(
+        id,
+        nuovoCodice,
+        (errore) => {
+
+            if (errore) {
+
+                console.error(
+                    "Errore modifica codice prodotto:",
+                    errore
+                );
+
+                return res.status(500).json({
+                    successo: false,
+                    errore: errore.message
+                });
+
+            }
+
+
+            res.json({
+                successo: true,
+                messaggio: "Codice prodotto aggiornato"
+            });
+
+        }
+    );
+
+});
+
 
 app.get("/lista-punto-vendita", (req, res) => {
 
