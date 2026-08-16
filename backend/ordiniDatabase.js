@@ -235,22 +235,112 @@ function modificaQuantitaOrdine(
     callback
 ) {
 
+    // -------------------------------------------------
+    // CERCA SE IL PRODOTTO ESISTE GIÀ
+    // -------------------------------------------------
+
     supabase
         .from("dettagli_ordine")
-        .update({
-            quantita: quantita
-        })
+        .select("id, descrizione")
         .eq("ordineId", ordineId)
         .eq("codice", codice)
+        .limit(1)
 
-        .then(({ error, count }) => {
+        .then(async ({ data, error }) => {
 
             if (error) {
                 callback(error);
                 return;
             }
 
-            callback(null, count || 1);
+
+            // -------------------------------------------------
+            // PRODOTTO GIÀ PRESENTE
+            // -------------------------------------------------
+
+            if (
+                data &&
+                data.length > 0
+            ) {
+
+                const risultato =
+                    await supabase
+                        .from("dettagli_ordine")
+                        .update({
+                            quantita: quantita
+                        })
+                        .eq("id", data[0].id);
+
+                if (risultato.error) {
+
+                    callback(
+                        risultato.error
+                    );
+
+                    return;
+
+                }
+
+                callback(
+                    null,
+                    1
+                );
+
+                return;
+
+            }
+
+
+            // -------------------------------------------------
+            // PRODOTTO NON PRESENTE
+            // LO INSERIAMO
+            // -------------------------------------------------
+
+            const risultato =
+                await supabase
+                    .from("dettagli_ordine")
+                    .insert({
+
+                        ordineId:
+                            ordineId,
+
+                        codice:
+                            codice,
+
+                        descrizione:
+                            "",
+
+                        quantita:
+                            quantita
+
+                    })
+                    .select("id")
+                    .single();
+
+
+            if (risultato.error) {
+
+                callback(
+                    risultato.error
+                );
+
+                return;
+
+            }
+
+
+            console.log(
+                "PRODOTTO INSERITO NELL'ORDINE:",
+                codice,
+                "quantità:",
+                quantita
+            );
+
+
+            callback(
+                null,
+                risultato.data.id
+            );
 
         })
 
