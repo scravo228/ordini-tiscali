@@ -1,19 +1,31 @@
+
 const cheerio = require("cheerio");
 const axios = require("axios");
 const { CookieJar } = require("tough-cookie");
 const { wrapper } = require("axios-cookiejar-support");
 
-let jar = null;
-let tiscali = null;
+// =====================================================
+// SESSIONI TISCALI PER PUNTO VENDITA
+// =====================================================
 
-function creaSessioneTiscali() {
+const sessioniTiscali = new Map();
 
-    jar = new CookieJar();
 
-    tiscali = wrapper(
+// =====================================================
+// CREA UNA NUOVA SESSIONE TISCALI
+// =====================================================
+
+function creaSessioneTiscali(puntoVenditaId) {
+
+    const id = String(puntoVenditaId);
+
+    const jar = new CookieJar();
+
+    const tiscali = wrapper(
         axios.create({
             jar,
             withCredentials: true,
+
             headers: {
                 "User-Agent":
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/151 Safari/537.36"
@@ -21,20 +33,82 @@ function creaSessioneTiscali() {
         })
     );
 
+    const sessione = {
+        puntoVenditaId: id,
+        jar,
+        tiscali
+    };
+
+    sessioniTiscali.set(
+        id,
+        sessione
+    );
+
     console.log("=================================");
     console.log("NUOVA SESSIONE TISCALI CREATA");
+    console.log("PUNTO VENDITA:", id);
+    console.log("SESSIONI ATTIVE:", sessioniTiscali.size);
     console.log("=================================");
 
-    return tiscali;
+    return sessione;
 }
 
-async function testaTiscali() {
+
+// =====================================================
+// RECUPERA SESSIONE TISCALI
+// =====================================================
+
+function getSessioneTiscali(puntoVenditaId) {
+
+    if (
+        puntoVenditaId === undefined ||
+        puntoVenditaId === null ||
+        puntoVenditaId === ""
+    ) {
+
+        throw new Error(
+            "puntoVenditaId obbligatorio per utilizzare la sessione Tiscali"
+        );
+    }
+
+    const id = String(puntoVenditaId);
+
+    let sessione =
+        sessioniTiscali.get(id);
+
+    if (!sessione) {
+
+        console.log(
+            "NESSUNA SESSIONE TROVATA PER IL PUNTO VENDITA:",
+            id
+        );
+
+        sessione =
+            creaSessioneTiscali(id);
+    }
+
+    return sessione;
+}
+
+
+// =====================================================
+// TEST CONNESSIONE TISCALI
+// =====================================================
+
+async function testaTiscali(puntoVenditaId) {
 
     try {
 
-        const risposta = await tiscali.get(
-            "https://www.tiscaliformaggi.com/it/catalogo"
-        );
+        const sessione =
+            getSessioneTiscali(puntoVenditaId);
+
+        const tiscali =
+            sessione.tiscali;
+
+        const risposta =
+            await tiscali.get(
+                "https://www.tiscaliformaggi.com/it/catalogo"
+            );
 
         console.log(
             "Tiscali raggiunto:",
@@ -42,8 +116,15 @@ async function testaTiscali() {
         );
 
         return {
+
             successo: true,
-            status: risposta.status
+
+            status:
+                risposta.status,
+
+            puntoVenditaId:
+                String(puntoVenditaId)
+
         };
 
     } catch (errore) {
@@ -54,62 +135,101 @@ async function testaTiscali() {
         );
 
         return {
-            successo: false,
-            errore: errore.message
-        };
 
+            successo: false,
+
+            puntoVenditaId:
+                puntoVenditaId != null
+                    ? String(puntoVenditaId)
+                    : null,
+
+            errore:
+                errore.message
+
+        };
 
     }
 
 }
-async function leggiPaginaLogin() {
+
+
+// =====================================================
+// LEGGI PAGINA LOGIN
+// =====================================================
+
+async function leggiPaginaLogin(puntoVenditaId) {
 
     try {
 
-        const risposta = await tiscali.get(
-            "https://www.tiscaliformaggi.com/it/accesso"
-        );
+        const sessione =
+            getSessioneTiscali(puntoVenditaId);
 
-        const $ = cheerio.load(risposta.data);
+        const tiscali =
+            sessione.tiscali;
 
-        const form = $("form").first();
+        const risposta =
+            await tiscali.get(
+                "https://www.tiscaliformaggi.com/it/accesso"
+            );
 
-        const action = form.attr("action") || "";
-        const method = form.attr("method") || "";
+        const $ =
+            cheerio.load(
+                risposta.data
+            );
+
+        const form =
+            $("form").first();
+
+        const action =
+            form.attr("action") || "";
+
+        const method =
+            form.attr("method") || "";
 
         const campi = [];
 
-        form.find("input").each((i, elemento) => {
+        form.find("input").each(
+            (i, elemento) => {
 
-            campi.push({
-                name: $(elemento).attr("name") || "",
-                type: $(elemento).attr("type") || "",
-                value: $(elemento).attr("value") || ""
-            });
+                campi.push({
 
-        });
+                    name:
+                        $(elemento).attr("name") || "",
+
+                    type:
+                        $(elemento).attr("type") || "",
+
+                    value:
+                        $(elemento).attr("value") || ""
+
+                });
+
+            }
+        );
+
+        const html =
+            risposta.data;
+
+        const posizioneToken =
+            html.indexOf(
+                "__RequestVerificationToken"
+            );
 
         console.log("FORM LOGIN");
+        console.log("Punto vendita:", puntoVenditaId);
         console.log("Action:", action);
         console.log("Method:", method);
         console.log("Campi:", campi);
 
+        console.log(
+            "DATA-ENTRYID NELL'HTML:",
+            (html.match(/data-entryid=/g) || []).length
+        );
 
-
-
-        const html = risposta.data;
-console.log(
-    "DATA-ENTRYID NELL'HTML:",
-    (html.match(/data-entryid=/g) || []).length
-);
-
-console.log(
-    "8543 PRESENTE:",
-    html.includes('data-entryid="8543"')
-);
-
-        const posizioneToken =
-            html.indexOf("__RequestVerificationToken");
+        console.log(
+            "8543 PRESENTE:",
+            html.includes('data-entryid="8543"')
+        );
 
         console.log(
             "Token presente nell'HTML:",
@@ -125,17 +245,23 @@ console.log(
 
         }
 
-
         return {
 
             successo: true,
-            status: risposta.status,
+
+            status:
+                risposta.status,
+
+            puntoVenditaId:
+                String(puntoVenditaId),
+
             action,
+
             method,
+
             campi
 
         };
-
 
     } catch (errore) {
 
@@ -147,27 +273,56 @@ console.log(
         return {
 
             successo: false,
-            errore: errore.message
+
+            puntoVenditaId:
+                puntoVenditaId != null
+                    ? String(puntoVenditaId)
+                    : null,
+
+            errore:
+                errore.message
 
         };
 
     }
 
 }
-async function loginTiscali(username, password) {
+
+
+// =====================================================
+// LOGIN TISCALI
+// =====================================================
+
+async function loginTiscali(
+    puntoVenditaId,
+    username,
+    password
+) {
 
     try {
-        if (!tiscali) {
-    creaSessioneTiscali();
-}
+
+        const sessione =
+            getSessioneTiscali(puntoVenditaId);
+
+        const tiscali =
+            sessione.tiscali;
+
+        const jar =
+            sessione.jar;
+
+        console.log("=================================");
+        console.log("LOGIN TISCALI");
+        console.log("PUNTO VENDITA:", puntoVenditaId);
+        console.log("=================================");
 
         console.log("=== INIZIO LOGIN TISCALI ===");
 
         console.log("1. GET PAGINA LOGIN");
 
-        const pagina = await tiscali.get(
-            "https://www.tiscaliformaggi.com/it/accesso"
-        );
+        const pagina =
+            await tiscali.get(
+                "https://www.tiscaliformaggi.com/it/accesso"
+            );
 
         console.log(
             "GET LOGIN STATUS:",
@@ -176,14 +331,17 @@ async function loginTiscali(username, password) {
 
         console.log(
             "GET LOGIN URL:",
-            pagina.request?.res?.responseUrl || "non disponibile"
+            pagina.request?.res?.responseUrl ||
+            "non disponibile"
         );
 
-        const html = pagina.data;
+        const html =
+            pagina.data;
 
-        const match = html.match(
-            /__RequestVerificationToken[^>]*value=["']([^"']+)["']/i
-        );
+        const match =
+            html.match(
+                /__RequestVerificationToken[^>]*value=["']([^"']+)["']/i
+            );
 
         console.log(
             "TOKEN TROVATO:",
@@ -193,30 +351,74 @@ async function loginTiscali(username, password) {
         if (!match) {
 
             return {
+
                 successo: false,
-                errore: "Token CSRF non trovato"
+
+                puntoVenditaId:
+                    String(puntoVenditaId),
+
+                errore:
+                    "Token CSRF non trovato"
+
             };
 
         }
 
-        const token = match[1];
+        const token =
+            match[1];
 
         console.log(
             "TOKEN LUNGHEZZA:",
             token.length
         );
 
-        const dati = new URLSearchParams();
+        const dati =
+            new URLSearchParams();
 
-        dati.append("username", username);
-        dati.append("password", password);
-        dati.append("form_sent", "login");
-        dati.append("pageToredirect", "319");
-        dati.append("pageToredirectBuy", "317");
-        dati.append("pagePopup", "False");
-        dati.append("enablePageRedirectForAll", "0");
-        dati.append("_pageId", "306");
-        dati.append("_componentId", "1265");
+        dati.append(
+            "username",
+            username
+        );
+
+        dati.append(
+            "password",
+            password
+        );
+
+        dati.append(
+            "form_sent",
+            "login"
+        );
+
+        dati.append(
+            "pageToredirect",
+            "319"
+        );
+
+        dati.append(
+            "pageToredirectBuy",
+            "317"
+        );
+
+        dati.append(
+            "pagePopup",
+            "False"
+        );
+
+        dati.append(
+            "enablePageRedirectForAll",
+            "0"
+        );
+
+        dati.append(
+            "_pageId",
+            "306"
+        );
+
+        dati.append(
+            "_componentId",
+            "1265"
+        );
 
         dati.append(
             "__RequestVerificationToken",
@@ -225,32 +427,34 @@ async function loginTiscali(username, password) {
 
         console.log("2. POST LOGIN");
 
-        console.log(
-            "URL:",
-            "https://www.tiscaliformaggi.com/Async/SubmitForm"
-        );
+        const risposta =
+            await tiscali.post(
+                "https://www.tiscaliformaggi.com/Async/SubmitForm",
 
-        const risposta = await tiscali.post(
-            "https://www.tiscaliformaggi.com/Async/SubmitForm",
-            dati.toString(),
-            {
-                headers: {
-                    "Content-Type":
-                        "application/x-www-form-urlencoded; charset=UTF-8",
+                dati.toString(),
 
-                    "X-Requested-With":
-                        "XMLHttpRequest",
+                {
+                    headers: {
 
-                    "Referer":
-                        "https://www.tiscaliformaggi.com/it/accesso",
+                        "Content-Type":
+                            "application/x-www-form-urlencoded; charset=UTF-8",
 
-                    "Origin":
-                        "https://www.tiscaliformaggi.com"
-                },
+                        "X-Requested-With":
+                            "XMLHttpRequest",
 
-                validateStatus: () => true
-            }
-        );
+                        "Referer":
+                            "https://www.tiscaliformaggi.com/it/accesso",
+
+                        "Origin":
+                            "https://www.tiscaliformaggi.com"
+
+                    },
+
+                    validateStatus:
+                        () => true
+
+                }
+            );
 
         console.log(
             "LOGIN RESPONSE STATUS:",
@@ -259,7 +463,8 @@ async function loginTiscali(username, password) {
 
         console.log(
             "LOGIN RESPONSE URL:",
-            risposta.request?.res?.responseUrl || "non disponibile"
+            risposta.request?.res?.responseUrl ||
+            "non disponibile"
         );
 
         console.log(
@@ -272,10 +477,6 @@ async function loginTiscali(username, password) {
 
         console.log(
             "COOKIE DOPO LOGIN:"
-        );
-
-        console.log(
-            "=== HEADER LOGIN ==="
         );
 
         console.dir(
@@ -298,18 +499,28 @@ async function loginTiscali(username, password) {
             )
         );
 
-        if (risposta.status !== 200) {
+        if (
+            risposta.status < 200 ||
+            risposta.status >= 300
+        ) {
 
             return {
+
                 successo: false,
 
-                status: risposta.status,
+                status:
+                    risposta.status,
+
+                puntoVenditaId:
+                    String(puntoVenditaId),
 
                 errore:
                     "Il server Tiscali ha restituito HTTP " +
                     risposta.status,
 
-                risposta: risposta.data
+                risposta:
+                    risposta.data
+
             };
 
         }
@@ -318,22 +529,34 @@ async function loginTiscali(username, password) {
             "=== LOGIN COMPLETATO ==="
         );
 
+        console.log(
+            "PUNTO VENDITA:",
+            puntoVenditaId
+        );
+
         return {
 
             successo: true,
 
-            status: risposta.status,
+            status:
+                risposta.status,
 
-            token: token,
+            puntoVenditaId:
+                String(puntoVenditaId),
+
+            token,
 
             returnedCode:
-                risposta.data?.returnedCode || null,
+                risposta.data?.returnedCode ||
+                null,
 
             returnedError:
-                risposta.data?.returnedError || null,
+                risposta.data?.returnedError ||
+                null,
 
             location:
-                risposta.data?.location || null,
+                risposta.data?.location ||
+                null,
 
             dataPresente:
                 !!risposta.data?.data
@@ -344,6 +567,11 @@ async function loginTiscali(username, password) {
 
         console.error(
             "=== ERRORE LOGIN TISCALI ==="
+        );
+
+        console.error(
+            "PUNTO VENDITA:",
+            puntoVenditaId
         );
 
         console.error(
@@ -375,68 +603,113 @@ async function loginTiscali(username, password) {
 
             successo: false,
 
-            errore: errore.message,
+            puntoVenditaId:
+                String(puntoVenditaId),
+
+            errore:
+                errore.message,
 
             url:
-                errore.config?.url || null,
+                errore.config?.url ||
+                null,
 
             status:
-                errore.response?.status || null
+                errore.response?.status ||
+                null
 
         };
 
     }
 
 }
-async function cercaProdottoTiscali(codice) {
+
+
+// =====================================================
+// CERCA PRODOTTO TISCALI
+// =====================================================
+
+async function cercaProdottoTiscali(
+    puntoVenditaId,
+    codice
+) {
 
     try {
 
-        const paginaCatalogo = await tiscali.get(
-            "https://www.tiscaliformaggi.com/it/catalogo"
-        );
+        const sessione =
+            getSessioneTiscali(puntoVenditaId);
 
-        const matchToken = paginaCatalogo.data.match(
-            /__RequestVerificationToken[^>]*value=["']([^"']+)["']/i
-        );
+        const tiscali =
+            sessione.tiscali;
 
-        const tokenCatalogo = matchToken
-            ? matchToken[1]
-            : null;
+        const paginaCatalogo =
+            await tiscali.get(
+                "https://www.tiscaliformaggi.com/it/catalogo"
+            );
+
+        const matchToken =
+            paginaCatalogo.data.match(
+                /__RequestVerificationToken[^>]*value=["']([^"']+)["']/i
+            );
+
+        const tokenCatalogo =
+            matchToken
+                ? matchToken[1]
+                : null;
 
         console.log(
             "Token catalogo trovato:",
             !!tokenCatalogo
         );
 
-        // ==============================
+        // =====================================================
         // 1. EXECUTE FILTER
-        // ==============================
+        // =====================================================
 
-        const dati = new URLSearchParams();
+        const dati =
+            new URLSearchParams();
 
-        dati.append("_pageId", "315");
-        dati.append("_pageType", "page");
-        dati.append("_filterId", "1469");
+        dati.append(
+            "_pageId",
+            "315"
+        );
+
+        dati.append(
+            "_pageType",
+            "page"
+        );
+
+        dati.append(
+            "_filterId",
+            "1469"
+        );
+
         dati.append(
             "_filters",
             `codice=${codice}&titolo=`
         );
+
         dati.append(
             "_location",
             "/it/catalogo"
         );
-        dati.append("_cascaded", "true");
+
+        dati.append(
+            "_cascaded",
+            "true"
+        );
+
         dati.append(
             "_filtersFields",
             "codice=autocomplete&titolo=autocomplete"
         );
 
         if (tokenCatalogo) {
+
             dati.append(
                 "__RequestVerificationToken",
                 tokenCatalogo
             );
+
         }
 
         console.log(
@@ -450,22 +723,30 @@ async function cercaProdottoTiscali(codice) {
             )
         );
 
-        const risposta = await tiscali.post(
-            "https://www.tiscaliformaggi.com/Async/Filter/ExecuteFilter",
-            dati.toString(),
-            {
-                headers: {
-                    "Content-Type":
-                        "application/x-www-form-urlencoded",
-                    "X-Requested-With":
-                        "XMLHttpRequest",
-                    "Referer":
-                        "https://www.tiscaliformaggi.com/it/catalogo",
-                    "Origin":
-                        "https://www.tiscaliformaggi.com"
+        const risposta =
+            await tiscali.post(
+                "https://www.tiscaliformaggi.com/Async/Filter/ExecuteFilter",
+
+                dati.toString(),
+
+                {
+                    headers: {
+
+                        "Content-Type":
+                            "application/x-www-form-urlencoded",
+
+                        "X-Requested-With":
+                            "XMLHttpRequest",
+
+                        "Referer":
+                            "https://www.tiscaliformaggi.com/it/catalogo",
+
+                        "Origin":
+                            "https://www.tiscaliformaggi.com"
+
+                    }
                 }
-            }
-        );
+            );
 
         console.log(
             "STATUS EXECUTEFILTER:",
@@ -477,50 +758,61 @@ async function cercaProdottoTiscali(codice) {
             risposta.data
         );
 
-        // ==============================
+        // =====================================================
         // 2. REFRESH FILTRI 1469
-        // ==============================
+        // =====================================================
 
-        const refreshDati = new URLSearchParams();
+        const refreshDati =
+            new URLSearchParams();
 
-        refreshDati.append("_pageId", "315");
-        refreshDati.append("_pageType", "page");
-        refreshDati.append("_componentId", "1469");
+        refreshDati.append(
+            "_pageId",
+            "315"
+        );
+
+        refreshDati.append(
+            "_pageType",
+            "page"
+        );
+
+        refreshDati.append(
+            "_componentId",
+            "1469"
+        );
 
         if (tokenCatalogo) {
+
             refreshDati.append(
                 "__RequestVerificationToken",
                 tokenCatalogo
             );
+
         }
 
-        console.log(
-            "DATI INVIATI REFRESH FILTRI:"
-        );
+        const rispostaRefresh =
+            await tiscali.post(
+                "https://www.tiscaliformaggi.com/Async/RefreshComponent",
 
-        console.log(
-            refreshDati.toString().replace(
-                /__RequestVerificationToken=[^&]+/,
-                "__RequestVerificationToken=TOKEN"
-            )
-        );
+                refreshDati.toString(),
 
-        const rispostaRefresh = await tiscali.post(
-            "https://www.tiscaliformaggi.com/Async/RefreshComponent",
-            refreshDati.toString(),
-            {
-                headers: {
-                    "Content-Type":
-                        "application/x-www-form-urlencoded",
-                    "X-Requested-With":
-                        "XMLHttpRequest",
-                    "Referer":
-                        "https://www.tiscaliformaggi.com/it/catalogo",
-                    "Origin":
-                        "https://www.tiscaliformaggi.com"
+                {
+                    headers: {
+
+                        "Content-Type":
+                            "application/x-www-form-urlencoded",
+
+                        "X-Requested-With":
+                            "XMLHttpRequest",
+
+                        "Referer":
+                            "https://www.tiscaliformaggi.com/it/catalogo",
+
+                        "Origin":
+                            "https://www.tiscaliformaggi.com"
+
+                    }
                 }
-            }
-        );
+            );
 
         console.log(
             "RISPOSTA REFRESH FILTRI:"
@@ -530,50 +822,61 @@ async function cercaProdottoTiscali(codice) {
             rispostaRefresh.data
         );
 
-        // ==============================
+        // =====================================================
         // 3. REFRESH RISULTATI 1493
-        // ==============================
+        // =====================================================
 
-        const risultatiDati = new URLSearchParams();
+        const risultatiDati =
+            new URLSearchParams();
 
-        risultatiDati.append("_pageId", "315");
-        risultatiDati.append("_pageType", "page");
-        risultatiDati.append("_componentId", "1493");
+        risultatiDati.append(
+            "_pageId",
+            "315"
+        );
+
+        risultatiDati.append(
+            "_pageType",
+            "page"
+        );
+
+        risultatiDati.append(
+            "_componentId",
+            "1493"
+        );
 
         if (tokenCatalogo) {
+
             risultatiDati.append(
                 "__RequestVerificationToken",
                 tokenCatalogo
             );
+
         }
 
-        console.log(
-            "DATI INVIATI REFRESH RISULTATI:"
-        );
+        const rispostaRisultati =
+            await tiscali.post(
+                "https://www.tiscaliformaggi.com/Async/RefreshComponent",
 
-        console.log(
-            risultatiDati.toString().replace(
-                /__RequestVerificationToken=[^&]+/,
-                "__RequestVerificationToken=TOKEN"
-            )
-        );
+                risultatiDati.toString(),
 
-        const rispostaRisultati = await tiscali.post(
-            "https://www.tiscaliformaggi.com/Async/RefreshComponent",
-            risultatiDati.toString(),
-            {
-                headers: {
-                    "Content-Type":
-                        "application/x-www-form-urlencoded",
-                    "X-Requested-With":
-                        "XMLHttpRequest",
-                    "Referer":
-                        "https://www.tiscaliformaggi.com/it/catalogo",
-                    "Origin":
-                        "https://www.tiscaliformaggi.com"
+                {
+                    headers: {
+
+                        "Content-Type":
+                            "application/x-www-form-urlencoded",
+
+                        "X-Requested-With":
+                            "XMLHttpRequest",
+
+                        "Referer":
+                            "https://www.tiscaliformaggi.com/it/catalogo",
+
+                        "Origin":
+                            "https://www.tiscaliformaggi.com"
+
+                    }
                 }
-            }
-        );
+            );
 
         console.log(
             "RISPOSTA REFRESH RISULTATI:"
@@ -583,266 +886,260 @@ async function cercaProdottoTiscali(codice) {
             rispostaRisultati.data
         );
 
+        // =====================================================
+        // 4. CERCA PRODOTTO NEL RISULTATO
+        // =====================================================
+
+        const html =
+            rispostaRisultati.data?.data ||
+            "";
+
         console.log(
-            "FINE RISPOSTA REFRESH RISULTATI"
+            "LUNGHEZZA HTML RISULTATI:",
+            html.length
         );
 
-        // ==============================
-// 4. CERCA PRODOTTO NEL RISULTATO
-// ==============================
+        const posAdd =
+            html.indexOf(
+                "/Async/Cart/Add"
+            );
 
-const html =
-    rispostaRisultati.data?.data || "";
+        if (posAdd !== -1) {
 
-console.log(
-    "LUNGHEZZA HTML RISULTATI:",
-    html.length
-);
+            const inizio =
+                Math.max(
+                    0,
+                    posAdd - 1500
+                );
 
-// ANALISI DEL BLOCCO PRODOTTO
-console.log("=================================");
-console.log("ANALISI HTML PRODOTTO");
-console.log("CODICE:", codice);
-console.log("=================================");
+            const fine =
+                Math.min(
+                    html.length,
+                    posAdd + 3000
+                );
 
-const posAdd = html.indexOf("/Async/Cart/Add");
+            console.log(
+                html.substring(
+                    inizio,
+                    fine
+                )
+            );
 
-if (posAdd !== -1) {
+        } else {
 
-    const inizio = Math.max(0, posAdd - 1500);
-    const fine = Math.min(
-        html.length,
-        posAdd + 3000
-    );
+            console.log(
+                "NESSUN /Async/Cart/Add TROVATO NELL'HTML"
+            );
 
-    console.log(
-        html.substring(inizio, fine)
-    );
-
-} else {
-
-    console.log(
-        "NESSUN /Async/Cart/Add TROVATO NELL'HTML"
-    );
-
-}
-
-const $risultati = cheerio.load(html);
-
-console.log("=================================");
-console.log("ELEMENTI CON DATA-ENTRYID");
-console.log("=================================");
-
-$risultati("[data-entryid]").each((i, elemento) => {
-
-    console.log(
-        "ELEMENTO:",
-        i
-    );
-
-    console.log(
-        "HTML ELEMENTO:",
-        $risultati.html(elemento)
-    );
-
-});
-// =================================
-// CERCA IL PRODOTTO CORRETTO
-// =================================
-
-let prodottoElemento = null;
-let productId = null;
-let entryId = null;
-
-$risultati("[data-action='addtocart']").each(
-    (i, elemento) => {
-
-        const id =
-            $risultati(elemento).attr("data-productid");
-
-        if (!id) {
-            return;
         }
 
-        // Cerchiamo il contenitore del prodotto
-        const contenitore =
-            $risultati(elemento)
-                .closest(".ContainerRowComp");
+        const $risultati =
+            cheerio.load(html);
 
-        const testo =
-            contenitore
-                .text()
-                .replace(/\s+/g, " ")
-                .trim();
+        let prodottoElemento = null;
+        let productId = null;
+        let entryId = null;
 
-        if (
-            testo.includes(codice)
-        ) {
+        $risultati(
+            "[data-action='addtocart']"
+        ).each(
+            (i, elemento) => {
 
-            prodottoElemento =
-                contenitore;
+                const id =
+                    $risultati(elemento)
+                        .attr("data-productid");
 
-            productId =
-                id;
+                if (!id) {
+                    return;
+                }
 
-            return false;
+                const contenitore =
+                    $risultati(elemento)
+                        .closest(
+                            ".ContainerRowComp"
+                        );
+
+                const testo =
+                    contenitore
+                        .text()
+                        .replace(
+                            /\s+/g,
+                            " "
+                        )
+                        .trim();
+
+                if (
+                    testo.includes(codice)
+                ) {
+
+                    prodottoElemento =
+                        contenitore;
+
+                    productId =
+                        id;
+
+                    return false;
+
+                }
+
+            }
+        );
+
+        // =====================================================
+        // CODICE / DESCRIZIONE
+        // =====================================================
+
+        let codiceTrovato = "";
+        let descrizioneTrovata = "";
+
+        if (prodottoElemento) {
+
+            const testo =
+                prodottoElemento
+                    .text()
+                    .replace(
+                        /\s+/g,
+                        " "
+                    )
+                    .trim();
+
+            if (
+                testo.includes(codice)
+            ) {
+
+                codiceTrovato =
+                    codice;
+
+            }
+
+            const titolo =
+                prodottoElemento
+                    .find(".titoloArticolo")
+                    .first()
+                    .text()
+                    .replace(
+                        /\s+/g,
+                        " "
+                    )
+                    .trim();
+
+            descrizioneTrovata =
+                titolo;
+
         }
 
-    }
-);
+        // =====================================================
+        // ENTRY ID
+        // =====================================================
 
+        if (prodottoElemento) {
 
-// =================================
-// CODICE / DESCRIZIONE
-// =================================
+            const elementoEntry =
+                prodottoElemento
+                    .find("[data-entryid]")
+                    .first();
 
-let codiceTrovato = "";
-let descrizioneTrovata = "";
+            if (
+                elementoEntry.length
+            ) {
 
-if (prodottoElemento) {
+                entryId =
+                    elementoEntry.attr(
+                        "data-entryid"
+                    ) || null;
 
-    const testo =
-        prodottoElemento
-            .text()
-            .replace(/\s+/g, " ")
-            .trim();
+            }
 
-    if (testo.includes(codice)) {
+        }
 
-        codiceTrovato =
-            codice;
+        console.log(
+            "PRODUCT ID TROVATO:",
+            productId
+        );
 
-    }
+        console.log(
+            "ENTRY ID TROVATO:",
+            entryId
+        );
 
-    const titolo =
-        prodottoElemento
-            .find(".titoloArticolo")
-            .first()
-            .text()
-            .replace(/\s+/g, " ")
-            .trim();
+        console.log(
+            "CODICE RICHIESTO:",
+            codice
+        );
 
-    descrizioneTrovata =
-        titolo;
+        console.log(
+            "CODICE TROVATO:",
+            codiceTrovato
+        );
 
-}
+        console.log(
+            "DESCRIZIONE TROVATA:",
+            descrizioneTrovata
+        );
 
+        return {
 
-// =================================
-// ENTRY ID
-// =================================
+            successo: true,
 
-if (prodottoElemento) {
+            status:
+                rispostaRisultati.status,
 
-    const elementoEntry =
-        prodottoElemento
-            .find("[data-entryid]")
-            .first();
+            puntoVenditaId:
+                String(puntoVenditaId),
 
-    if (elementoEntry.length) {
+            codice,
 
-        entryId =
-            elementoEntry.attr("data-entryid") ||
-            null;
+            prodottoTrovato:
+                !!productId,
 
-    }
+            productId,
 
-}
+            entryId,
 
+            codiceTrovato,
 
-// =================================
-// LOG
-// =================================
+            descrizioneTrovata
 
-console.log(
-    "PRODUCT ID TROVATO:",
-    productId
-);
-
-console.log(
-    "ENTRY ID TROVATO:",
-    entryId
-);
-
-console.log(
-    "CODICE RICHIESTO:",
-    codice
-);
-
-console.log(
-    "CODICE TROVATO:",
-    codiceTrovato
-);
-
-console.log(
-    "DESCRIZIONE TROVATA:",
-    descrizioneTrovata
-);
-
-console.log(
-    "PRODOTTO TROVATO:",
-    !!productId
-);
-
-return {
-
-    successo: true,
-
-    status:
-        rispostaRisultati.status,
-
-    codice:
-        codice,
-
-    prodottoTrovato:
-        !!productId,
-
-    productId:
-        productId,
-
-    entryId:
-        entryId,
-
-    codiceTrovato:
-        codiceTrovato,
-
-    descrizioneTrovata:
-        descrizioneTrovata
-
-};
+        };
 
     } catch (errore) {
 
-       console.error(
-    "ERRORE CERCA PRODOTTO:",
-    errore.message
-);
+        console.error(
+            "ERRORE CERCA PRODOTTO:",
+            errore.message
+        );
 
-console.error(
-    "URL ERRORE:",
-    errore.config?.url
-);
+        console.error(
+            "URL ERRORE:",
+            errore.config?.url
+        );
 
-console.error(
-    "METODO ERRORE:",
-    errore.config?.method
-);
+        console.error(
+            "METODO ERRORE:",
+            errore.config?.method
+        );
 
-console.error(
-    "STATUS ERRORE:",
-    errore.response?.status
-);
+        console.error(
+            "STATUS ERRORE:",
+            errore.response?.status
+        );
 
-console.error(
-    "RISPOSTA ERRORE:",
-    errore.response?.data
-);
+        console.error(
+            "RISPOSTA ERRORE:",
+            errore.response?.data
+        );
 
         return {
 
             successo: false,
-            codice: codice,
-            errore: errore.message
+
+            puntoVenditaId:
+                String(puntoVenditaId),
+
+            codice,
+
+            errore:
+                errore.message
 
         };
 
@@ -850,12 +1147,31 @@ console.error(
 
 }
 
-async function aggiungiAlCarrelloTiscali(productId, quantita) {
+
+// =====================================================
+// AGGIUNGI AL CARRELLO TISCALI
+// =====================================================
+
+async function aggiungiAlCarrelloTiscali(
+    puntoVenditaId,
+    productId,
+    quantita
+) {
 
     try {
 
+        const sessione =
+            getSessioneTiscali(puntoVenditaId);
+
+        const tiscali =
+            sessione.tiscali;
+
+        const jar =
+            sessione.jar;
+
         console.log("=================================");
         console.log("AGGIUNTA CARRELLO");
+        console.log("PUNTO VENDITA:", puntoVenditaId);
         console.log("PRODUCT ID:", productId);
         console.log("QUANTITA:", quantita);
         console.log(
@@ -864,24 +1180,23 @@ async function aggiungiAlCarrelloTiscali(productId, quantita) {
         );
         console.log("=================================");
 
-        // ==============================
-        // CONTROLLO PRODUCT ID
-        // ==============================
-
         if (!productId) {
 
             return {
+
                 successo: false,
-                errore: "Product ID mancante"
+
+                errore:
+                    "Product ID mancante"
+
             };
 
         }
 
-        // ==============================
-        // MODALITÀ TEST
-        // ==============================
-
-        if (process.env.TISCALI_TEST_MODE === "true") {
+        if (
+            process.env.TISCALI_TEST_MODE ===
+            "true"
+        ) {
 
             console.log(
                 "MODALITÀ TEST: carrello NON modificato"
@@ -890,6 +1205,9 @@ async function aggiungiAlCarrelloTiscali(productId, quantita) {
             return {
 
                 successo: true,
+
+                puntoVenditaId:
+                    String(puntoVenditaId),
 
                 modalitaTest: true,
 
@@ -908,11 +1226,9 @@ async function aggiungiAlCarrelloTiscali(productId, quantita) {
 
         }
 
-        // ==============================
-        // PAGINA CATALOGO
-        // ==============================
-
-        console.log("GET PAGINA CATALOGO");
+        console.log(
+            "GET PAGINA CATALOGO"
+        );
 
         const paginaCatalogo =
             await tiscali.get(
@@ -923,10 +1239,6 @@ async function aggiungiAlCarrelloTiscali(productId, quantita) {
             "STATUS PAGINA CATALOGO:",
             paginaCatalogo.status
         );
-
-        // ==============================
-        // TOKEN CSRF
-        // ==============================
 
         const matchToken =
             paginaCatalogo.data.match(
@@ -945,20 +1257,6 @@ async function aggiungiAlCarrelloTiscali(productId, quantita) {
             );
 
         }
-
-        console.log(
-            "TOKEN CARRELLO TROVATO:",
-            true
-        );
-
-        console.log(
-            "TOKEN LUNGHEZZA:",
-            tokenCatalogo.length
-        );
-
-        // ==============================
-        // DATI CART/ADD
-        // ==============================
 
         const dati =
             new URLSearchParams();
@@ -992,24 +1290,6 @@ async function aggiungiAlCarrelloTiscali(productId, quantita) {
         );
 
         console.log(
-            "================================="
-        );
-
-        console.log(
-            "INVIO POST /Async/Cart/Add"
-        );
-
-        console.log(
-            "PRODUCT ID:",
-            productId
-        );
-
-        console.log(
-            "QUANTITÀ:",
-            quantita
-        );
-
-        console.log(
             "DATI POST:",
             dati.toString().replace(
                 /__RequestVerificationToken=[^&]+/,
@@ -1017,31 +1297,22 @@ async function aggiungiAlCarrelloTiscali(productId, quantita) {
             )
         );
 
-        // ==============================
-        // COOKIE PRIMA CART/ADD
-        // ==============================
-
         console.log(
             "COOKIE PRIMA CART/ADD:"
         );
 
-        const cookiePrima =
+        console.log(
             await jar.getCookieString(
                 "https://www.tiscaliformaggi.com"
-            );
-
-        console.log(
-            cookiePrima
+            )
         );
-
-        // ==============================
-        // POST CART/ADD
-        // ==============================
 
         const risposta =
             await tiscali.post(
                 "https://www.tiscaliformaggi.com/Async/Cart/Add",
+
                 dati.toString(),
+
                 {
 
                     headers: {
@@ -1071,22 +1342,6 @@ async function aggiungiAlCarrelloTiscali(productId, quantita) {
             risposta.status
         );
 
-        // ==============================
-        // SET-COOKIE
-        // ==============================
-
-        console.log(
-            "SET-COOKIE CART/ADD:"
-        );
-
-        console.log(
-            risposta.headers["set-cookie"]
-        );
-
-        // ==============================
-        // RISPOSTA CART/ADD
-        // ==============================
-
         console.log(
             "RISPOSTA CART/ADD:"
         );
@@ -1096,56 +1351,31 @@ async function aggiungiAlCarrelloTiscali(productId, quantita) {
             { depth: null }
         );
 
-        // ==============================
-        // COOKIE DOPO CART/ADD
-        // ==============================
-
         console.log(
             "COOKIE DOPO CART/ADD:"
         );
 
-        const cookieDopo =
+        console.log(
             await jar.getCookieString(
                 "https://www.tiscaliformaggi.com"
-            );
-
-        console.log(
-            cookieDopo
+            )
         );
 
-        console.log(
-            "================================="
-        );
-
-
-        console.log(
-            "================================="
-        );
-
-        console.log(
-            "FINE VERIFICA CARRELLO"
-        );
-
-        console.log(
-            "================================="
-        );
-
-        // ==============================
-        // RISULTATO FINALE
-        // ==============================
+        const carrelloModificato =
+            risposta.status >= 200 &&
+            risposta.status < 300;
 
         return {
 
             successo:
-                risposta.status >= 200 &&
-                risposta.status < 300,
+                carrelloModificato,
 
-            modalitaTest:
-                false,
+            puntoVenditaId:
+                String(puntoVenditaId),
 
-            carrelloModificato:
-                risposta.status >= 200 &&
-                risposta.status < 300,
+            modalitaTest: false,
+
+            carrelloModificato,
 
             status:
                 risposta.status,
@@ -1157,32 +1387,14 @@ async function aggiungiAlCarrelloTiscali(productId, quantita) {
                 Number(quantita),
 
             risposta:
-                risposta.data,
-
-            
+                risposta.data
 
         };
 
     } catch (errore) {
 
-        // ==============================
-        // ERRORE
-        // ==============================
-
         console.error(
-            "================================="
-        );
-
-        console.error(
-            "ERRORE AGGIUNTA CARRELLO"
-        );
-
-        console.error(
-            "================================="
-        );
-
-        console.error(
-            "MESSAGGIO:",
+            "ERRORE AGGIUNTA CARRELLO:",
             errore.message
         );
 
@@ -1206,13 +1418,14 @@ async function aggiungiAlCarrelloTiscali(productId, quantita) {
             errore.response?.data
         );
 
-        console.error(
-            "================================="
-        );
-
         return {
 
             successo: false,
+
+            puntoVenditaId:
+                puntoVenditaId != null
+                    ? String(puntoVenditaId)
+                    : null,
 
             modalitaTest: false,
 
@@ -1222,10 +1435,12 @@ async function aggiungiAlCarrelloTiscali(productId, quantita) {
                 errore.message,
 
             status:
-                errore.response?.status || null,
+                errore.response?.status ||
+                null,
 
             risposta:
-                errore.response?.data || null
+                errore.response?.data ||
+                null
 
         };
 
@@ -1233,46 +1448,74 @@ async function aggiungiAlCarrelloTiscali(productId, quantita) {
 
 }
 
-        
-async function verificaCarrelloTiscali(productId, codice) {
+
+// =====================================================
+// VERIFICA CARRELLO
+// =====================================================
+
+async function verificaCarrelloTiscali(
+    puntoVenditaId,
+    productId,
+    codice
+) {
 
     try {
 
-        const risposta = await tiscali.get(
-            "https://www.tiscaliformaggi.com/it/catalogo/carrello"
+        const sessione =
+            getSessioneTiscali(puntoVenditaId);
+
+        const tiscali =
+            sessione.tiscali;
+
+        const risposta =
+            await tiscali.get(
+                "https://www.tiscaliformaggi.com/it/catalogo/carrello"
+            );
+
+        const html =
+            risposta.data;
+
+        console.log(
+            "================================="
         );
 
-        const html = risposta.data;
+        console.log(
+            "VERIFICA CARRELLO TISCALI"
+        );
 
+        console.log(
+            "PUNTO VENDITA:",
+            puntoVenditaId
+        );
 
-        console.log("=================================");
-        console.log("VERIFICA CARRELLO TISCALI");
-        console.log("STATUS:", risposta.status);
-        console.log("PRODUCT ID CERCA:", productId);
-        console.log("CODICE CERCA:", codice);
-        console.log("LUNGHEZZA HTML:", html.length);
-        console.log("=================================");
+        console.log(
+            "PRODUCT ID CERCA:",
+            productId
+        );
 
+        console.log(
+            "CODICE CERCA:",
+            codice
+        );
+
+        console.log(
+            "LUNGHEZZA HTML:",
+            html.length
+        );
+
+        console.log(
+            "================================="
+        );
 
         const contieneProductId =
-            html.includes(String(productId));
-
+            html.includes(
+                String(productId)
+            );
 
         const contieneCodice =
-            html.includes(String(codice));
-
-
-        console.log(
-            "PRODUCT ID PRESENTE:",
-            contieneProductId
-        );
-
-
-        console.log(
-            "CODICE PRESENTE:",
-            contieneCodice
-        );
-
+            html.includes(
+                String(codice)
+            );
 
         if (contieneProductId) {
 
@@ -1281,21 +1524,17 @@ async function verificaCarrelloTiscali(productId, codice) {
                     String(productId)
                 );
 
-
-            console.log(
-                "HTML INTORNO AL PRODOTTO:"
-            );
-
-
             console.log(
                 html.substring(
-                    Math.max(0, posizione - 500),
+                    Math.max(
+                        0,
+                        posizione - 500
+                    ),
                     posizione + 1000
                 )
             );
 
         }
-
 
         return {
 
@@ -1303,6 +1542,9 @@ async function verificaCarrelloTiscali(productId, codice) {
 
             status:
                 risposta.status,
+
+            puntoVenditaId:
+                String(puntoVenditaId),
 
             productId,
 
@@ -1319,19 +1561,19 @@ async function verificaCarrelloTiscali(productId, codice) {
 
         };
 
-
     } catch (errore) {
-
 
         console.error(
             "ERRORE VERIFICA CARRELLO:",
             errore.message
         );
 
-
         return {
 
             successo: false,
+
+            puntoVenditaId:
+                String(puntoVenditaId),
 
             errore:
                 errore.message
@@ -1343,40 +1585,65 @@ async function verificaCarrelloTiscali(productId, codice) {
 }
 
 
-async function analizzaEliminazioneCarrelloTiscali(productId) {
+// =====================================================
+// ANALIZZA ELIMINAZIONE CARRELLO
+// =====================================================
+
+async function analizzaEliminazioneCarrelloTiscali(
+    puntoVenditaId,
+    productId
+) {
 
     try {
 
-        console.log("=================================");
-        console.log("ANALISI RIMOZIONE CARRELLO");
-        console.log("PRODUCT ID:", productId);
-        console.log("=================================");
+        console.log(
+            "================================="
+        );
 
-        const carrello = await leggiCarrelloTiscali();
+        console.log(
+            "ANALISI RIMOZIONE CARRELLO"
+        );
 
-        console.log("=== RISULTATO LETTURA CARRELLO ===");
-        console.dir(carrello, { depth: null });
+        console.log(
+            "PUNTO VENDITA:",
+            puntoVenditaId
+        );
+
+        console.log(
+            "PRODUCT ID:",
+            productId
+        );
+
+        console.log(
+            "================================="
+        );
+
+        const carrello =
+            await leggiCarrelloTiscali(
+                puntoVenditaId
+            );
 
         if (!carrello.successo) {
 
             return {
+
                 successo: false,
-                errore: "Impossibile leggere il carrello"
+
+                errore:
+                    "Impossibile leggere il carrello"
+
             };
 
         }
 
-        const prodotto = carrello.articoli.find(
-            articolo =>
-                articolo.productId === String(productId)
-        );
+        const prodotto =
+            carrello.articoli.find(
+                articolo =>
+                    articolo.productId ===
+                    String(productId)
+            );
 
         if (!prodotto) {
-
-            console.log(
-                "PRODOTTO NON TROVATO:",
-                productId
-            );
 
             return {
 
@@ -1384,7 +1651,11 @@ async function analizzaEliminazioneCarrelloTiscali(productId) {
 
                 trovato: false,
 
-                productId: String(productId),
+                puntoVenditaId:
+                    String(puntoVenditaId),
+
+                productId:
+                    String(productId),
 
                 messaggio:
                     "Prodotto non presente nel carrello"
@@ -1393,18 +1664,20 @@ async function analizzaEliminazioneCarrelloTiscali(productId) {
 
         }
 
-        console.log("PRODOTTO TROVATO:");
-        console.dir(prodotto, { depth: null });
-
         return {
 
             successo: true,
 
             trovato: true,
 
-            productId: String(productId),
+            puntoVenditaId:
+                String(puntoVenditaId),
 
-            rowId: prodotto.rowId,
+            productId:
+                String(productId),
+
+            rowId:
+                prodotto.rowId,
 
             quantita:
                 prodotto.quantita
@@ -1422,37 +1695,86 @@ async function analizzaEliminazioneCarrelloTiscali(productId) {
 
             successo: false,
 
-            errore: errore.message
+            puntoVenditaId:
+                String(puntoVenditaId),
+
+            errore:
+                errore.message
 
         };
 
     }
 
 }
-function debugCookieTiscali() {
+
+
+// =====================================================
+// DEBUG COOKIE TISCALI
+// =====================================================
+
+function debugCookieTiscali(puntoVenditaId) {
+
     try {
-        const cookies = jar.getCookiesSync(
-            "https://www.tiscaliformaggi.com"
+
+        const sessione =
+            getSessioneTiscali(
+                puntoVenditaId
+            );
+
+        const jar =
+            sessione.jar;
+
+        const cookies =
+            jar.getCookiesSync(
+                "https://www.tiscaliformaggi.com"
+            );
+
+        console.log(
+            "================================="
         );
 
-        console.log("=================================");
-        console.log("COOKIE SESSIONE TISCALI");
-        console.log("NUMERO COOKIE:", cookies.length);
-        console.log("=================================");
+        console.log(
+            "COOKIE SESSIONE TISCALI"
+        );
 
-        cookies.forEach((cookie, i) => {
-            console.log(
-                i + 1,
-                cookie.key,
-                "=",
-                cookie.value
-            );
-        });
+        console.log(
+            "PUNTO VENDITA:",
+            puntoVenditaId
+        );
 
-        return cookies.map(cookie => ({
-            nome: cookie.key,
-            valore: cookie.value
-        }));
+        console.log(
+            "NUMERO COOKIE:",
+            cookies.length
+        );
+
+        console.log(
+            "================================="
+        );
+
+        cookies.forEach(
+            (cookie, i) => {
+
+                console.log(
+                    i + 1,
+                    cookie.key,
+                    "=",
+                    cookie.value
+                );
+
+            }
+        );
+
+        return cookies.map(
+            cookie => ({
+
+                nome:
+                    cookie.key,
+
+                valore:
+                    cookie.value
+
+            })
+        );
 
     } catch (errore) {
 
@@ -1462,17 +1784,37 @@ function debugCookieTiscali() {
         );
 
         return [];
+
     }
+
 }
-async function verificaSessioneTiscali() {
+
+
+// =====================================================
+// VERIFICA SESSIONE TISCALI
+// =====================================================
+
+async function verificaSessioneTiscali(
+    puntoVenditaId
+) {
 
     try {
 
-        const risposta = await tiscali.get(
-            "https://www.tiscaliformaggi.com/it/catalogo"
-        );
+        const sessione =
+            getSessioneTiscali(
+                puntoVenditaId
+            );
 
-        const html = risposta.data;
+        const tiscali =
+            sessione.tiscali;
+
+        const risposta =
+            await tiscali.get(
+                "https://www.tiscaliformaggi.com/it/catalogo"
+            );
+
+        const html =
+            risposta.data;
 
         const loginPresente =
             html.includes("Logout") ||
@@ -1482,10 +1824,19 @@ async function verificaSessioneTiscali() {
         return {
 
             successo: true,
-            status: risposta.status,
+
+            status:
+                risposta.status,
+
+            puntoVenditaId:
+                String(puntoVenditaId),
+
             paginaAccessibile: true,
-            loginPresente: loginPresente,
-            lunghezzaHTML: html.length
+
+            loginPresente,
+
+            lunghezzaHTML:
+                html.length
 
         };
 
@@ -1494,59 +1845,108 @@ async function verificaSessioneTiscali() {
         return {
 
             successo: false,
-            errore: errore.message
+
+            puntoVenditaId:
+                String(puntoVenditaId),
+
+            errore:
+                errore.message
 
         };
 
     }
 
 }
-     async function leggiCarrelloTiscali() {
+
+
+// =====================================================
+// LEGGI CARRELLO TISCALI
+// =====================================================
+
+async function leggiCarrelloTiscali(
+    puntoVenditaId
+) {
 
     try {
 
-        console.log("=================================");
-        console.log("LETTURA COMPLETA CARRELLO TISCALI");
-        console.log("=================================");
+        const sessione =
+            getSessioneTiscali(
+                puntoVenditaId
+            );
 
-        const risposta = await tiscali.get(
-            "https://www.tiscaliformaggi.com/it/catalogo/carrello",
-            {
-                headers: {
-                    "Referer":
-                        "https://www.tiscaliformaggi.com/it/catalogo/carrello"
-                },
-                validateStatus: () => true
-            }
+        const tiscali =
+            sessione.tiscali;
+
+        console.log(
+            "================================="
         );
 
-        const html = risposta.data;
+        console.log(
+            "LETTURA COMPLETA CARRELLO TISCALI"
+        );
 
-        console.log("STATUS CARRELLO:", risposta.status);
+        console.log(
+            "PUNTO VENDITA:",
+            puntoVenditaId
+        );
+
+        console.log(
+            "================================="
+        );
+
+        const risposta =
+            await tiscali.get(
+                "https://www.tiscaliformaggi.com/it/catalogo/carrello",
+                {
+                    headers: {
+
+                        "Referer":
+                            "https://www.tiscaliformaggi.com/it/catalogo/carrello"
+
+                    },
+
+                    validateStatus:
+                        () => true
+
+                }
+            );
+
+        const html =
+            risposta.data;
+
+        console.log(
+            "STATUS CARRELLO:",
+            risposta.status
+        );
 
         console.log(
             "URL CARRELLO:",
-            risposta.request?.res?.responseUrl || "non disponibile"
+            risposta.request?.res?.responseUrl ||
+            "non disponibile"
         );
 
         console.log(
             "LUNGHEZZA HTML:",
-            typeof html === "string" ? html.length : 0
+            typeof html === "string"
+                ? html.length
+                : 0
         );
-
-        // =====================================================
-        // VERIFICA CHE SIAMO ANCORA AUTENTICATI
-        // =====================================================
 
         if (
             typeof html === "string" &&
             (
-                html.includes("Username/Password errate") ||
-                html.includes("<title>Accesso - Tiscali Formaggi</title>")
+                html.includes(
+                    "Username/Password errate"
+                ) ||
+                html.includes(
+                    "<title>Accesso - Tiscali Formaggi</title>"
+                )
             )
         ) {
 
-            console.log("⚠️ ATTENZIONE: TISCALI STA MOSTRANDO LA PAGINA LOGIN");
+            console.log(
+                "⚠️ TISCALI STA MOSTRANDO LA PAGINA LOGIN"
+            );
 
             return {
 
@@ -1554,7 +1954,11 @@ async function verificaSessioneTiscali() {
 
                 autenticato: false,
 
-                status: risposta.status,
+                status:
+                    risposta.status,
+
+                puntoVenditaId:
+                    String(puntoVenditaId),
 
                 errore:
                     "La sessione Tiscali non risulta autenticata",
@@ -1567,95 +1971,59 @@ async function verificaSessioneTiscali() {
 
         }
 
-        // =====================================================
-        // ANALISI HTML
-        // =====================================================
-
-        const $ = cheerio.load(html);
-
-        console.log("=================================");
-        console.log("ANALISI HTML CARRELLO");
-        console.log("=================================");
-
-        console.log(
-            "BUTTON PRODUCTID:",
-            $("button[data-productid]").length
-        );
-
-        console.log(
-            "DATA PRODUCTID:",
-            $("[data-productid]").length
-        );
-
-        console.log(
-            "DATA ENTRYID:",
-            $("[data-entryid]").length
-        );
-
-        console.log(
-            "DATA ROWID:",
-            $("[data-rowid]").length
-        );
-
-        console.log(
-            "Z0005 NELL'HTML:",
-            html.includes("Z0005")
-        );
-
-        console.log(
-            "PRODUCT ID 8549 NELL'HTML:",
-            html.includes("8549")
-        );
-
-        console.log(
-            "FORM. GRANA PADANO:",
-            html.includes("FORM. GRANA PADANO")
-        );
-
-        console.log(
-            "VINO SANGIOVESE:",
-            html.includes("VINO SANGIOVESE")
-        );
-
-        // =====================================================
-        // LETTURA MINICART
-        // =====================================================
+        const $ =
+            cheerio.load(html);
 
         const articoli = [];
 
-        $(".ecMinicartComp-latestItemsOnCart > .d-flex").each(
+        $(
+            ".ecMinicartComp-latestItemsOnCart > .d-flex"
+        ).each(
             (i, elemento) => {
 
                 const titolo =
                     $(elemento)
                         .find(".col-title a")
                         .attr("title") ||
+
                     $(elemento)
                         .find(".col-title a")
                         .text()
                         .trim() ||
+
                     null;
 
                 const quantita =
                     $(elemento)
-                        .find(".ecMinicartComp-itemQty")
+                        .find(
+                            ".ecMinicartComp-itemQty"
+                        )
                         .text()
                         .trim() ||
+
                     null;
 
                 const rowId =
                     $(elemento)
-                        .find("button[data-rowid]")
+                        .find(
+                            "button[data-rowid]"
+                        )
                         .attr("data-rowid") ||
+
                     null;
 
                 const productId =
                     $(elemento)
                         .find("[data-productid]")
                         .attr("data-productid") ||
+
                     null;
 
-                if (titolo || rowId || productId) {
+                if (
+                    titolo ||
+                    rowId ||
+                    productId
+                ) {
 
                     articoli.push({
 
@@ -1674,21 +2042,15 @@ async function verificaSessioneTiscali() {
             }
         );
 
-        console.log("=================================");
         console.log(
             "ARTICOLI TROVATI:",
             articoli.length
         );
-        console.log("=================================");
 
         console.dir(
             articoli,
             { depth: null }
         );
-
-        // =====================================================
-        // RITORNO RISULTATO
-        // =====================================================
 
         return {
 
@@ -1696,7 +2058,11 @@ async function verificaSessioneTiscali() {
 
             autenticato: true,
 
-            status: risposta.status,
+            status:
+                risposta.status,
+
+            puntoVenditaId:
+                String(puntoVenditaId),
 
             lunghezzaHTML:
                 typeof html === "string"
@@ -1715,20 +2081,8 @@ async function verificaSessioneTiscali() {
     } catch (errore) {
 
         console.error(
-            "================================="
-        );
-
-        console.error(
-            "ERRORE LETTURA CARRELLO TISCALI"
-        );
-
-        console.error(
-            "MESSAGGIO:",
+            "ERRORE LETTURA CARRELLO TISCALI:",
             errore.message
-        );
-
-        console.error(
-            "================================="
         );
 
         return {
@@ -1737,7 +2091,11 @@ async function verificaSessioneTiscali() {
 
             autenticato: false,
 
-            errore: errore.message,
+            puntoVenditaId:
+                String(puntoVenditaId),
+
+            errore:
+                errore.message,
 
             numeroArticoli: 0,
 
@@ -1747,21 +2105,48 @@ async function verificaSessioneTiscali() {
 
     }
 
-}                
+}
 
-       
- 
-  async function aggiornaMiniCartTiscali() {
+
+// =====================================================
+// AGGIORNA MINICART TISCALI
+// =====================================================
+
+async function aggiornaMiniCartTiscali(
+    puntoVenditaId
+) {
 
     try {
 
-        console.log("=================================");
-        console.log("AGGIORNAMENTO MINICART TISCALI");
-        console.log("=================================");
+        const sessione =
+            getSessioneTiscali(
+                puntoVenditaId
+            );
 
-        const paginaCatalogo = await tiscali.get(
-            "https://www.tiscaliformaggi.com/it/catalogo"
+        const tiscali =
+            sessione.tiscali;
+
+        console.log(
+            "================================="
         );
+
+        console.log(
+            "AGGIORNAMENTO MINICART TISCALI"
+        );
+
+        console.log(
+            "PUNTO VENDITA:",
+            puntoVenditaId
+        );
+
+        console.log(
+            "================================="
+        );
+
+        const paginaCatalogo =
+            await tiscali.get(
+                "https://www.tiscaliformaggi.com/it/catalogo"
+            );
 
         const matchToken =
             paginaCatalogo.data.match(
@@ -1774,28 +2159,50 @@ async function verificaSessioneTiscali() {
                 : null;
 
         if (!token) {
-            throw new Error("Token CSRF non trovato");
+
+            throw new Error(
+                "Token CSRF non trovato"
+            );
+
         }
 
-        // Primo RefreshComponent: minicart prodotti
-        const dati1 = new URLSearchParams();
+        // =====================================================
+        // MINICART 955
+        // =====================================================
 
-        dati1.append("_pageId", "315");
-        dati1.append("_pageType", "page");
-        dati1.append("_componentId", "955");
+        const dati1 =
+            new URLSearchParams();
+
+        dati1.append(
+            "_pageId",
+            "315"
+        );
+
+        dati1.append(
+            "_pageType",
+            "page"
+        );
+
+        dati1.append(
+            "_componentId",
+            "955"
+        );
+
         dati1.append(
             "__RequestVerificationToken",
             token
         );
 
-        console.log("INVIO PRIMO REFRESH COMPONENT");
-
         const risposta1 =
             await tiscali.post(
                 "https://www.tiscaliformaggi.com/Async/RefreshComponent",
+
                 dati1.toString(),
+
                 {
+
                     headers: {
+
                         "Content-Type":
                             "application/x-www-form-urlencoded; charset=UTF-8",
 
@@ -1807,10 +2214,12 @@ async function verificaSessioneTiscali() {
 
                         "Origin":
                             "https://www.tiscaliformaggi.com"
+
                     },
 
                     validateStatus:
                         () => true
+
                 }
             );
 
@@ -1819,29 +2228,43 @@ async function verificaSessioneTiscali() {
             risposta1.status
         );
 
-        console.log(
-            "MINICART 955 AGGIORNATO"
+        // =====================================================
+        // MINICART 952
+        // =====================================================
+
+        const dati2 =
+            new URLSearchParams();
+
+        dati2.append(
+            "_pageId",
+            "315"
         );
 
-        // Secondo RefreshComponent: minicart contatore
-        const dati2 = new URLSearchParams();
+        dati2.append(
+            "_pageType",
+            "page"
+        );
 
-        dati2.append("_pageId", "315");
-        dati2.append("_pageType", "page");
-        dati2.append("_componentId", "952");
+        dati2.append(
+            "_componentId",
+            "952"
+        );
+
         dati2.append(
             "__RequestVerificationToken",
             token
         );
 
-        console.log("INVIO SECONDO REFRESH COMPONENT");
-
         const risposta2 =
             await tiscali.post(
                 "https://www.tiscaliformaggi.com/Async/RefreshComponent",
+
                 dati2.toString(),
+
                 {
+
                     headers: {
+
                         "Content-Type":
                             "application/x-www-form-urlencoded; charset=UTF-8",
 
@@ -1853,10 +2276,12 @@ async function verificaSessioneTiscali() {
 
                         "Origin":
                             "https://www.tiscaliformaggi.com"
+
                     },
 
                     validateStatus:
                         () => true
+
                 }
             );
 
@@ -1865,13 +2290,12 @@ async function verificaSessioneTiscali() {
             risposta2.status
         );
 
-        console.log(
-            "MINICART 952 AGGIORNATO"
-        );
-
         return {
 
             successo: true,
+
+            puntoVenditaId:
+                String(puntoVenditaId),
 
             minicart955:
                 risposta1.data,
@@ -1892,132 +2316,118 @@ async function verificaSessioneTiscali() {
 
             successo: false,
 
+            puntoVenditaId:
+                String(puntoVenditaId),
+
             errore:
                 errore.message
 
         };
 
     }
+
 }
 
-async function rimuoviProdottoCarrelloTiscali(rowId) {
+
+// =====================================================
+// RIMUOVI PRODOTTO DAL CARRELLO
+// =====================================================
+
+async function rimuoviProdottoCarrelloTiscali(
+    puntoVenditaId,
+    rowId
+) {
 
     try {
 
-        console.log("=================================");
-        console.log("RIMOZIONE PRODOTTO DAL CARRELLO");
-        console.log("=================================");
+        console.log(
+            "================================="
+        );
+
+        console.log(
+            "RIMOZIONE PRODOTTO DAL CARRELLO"
+        );
+
+        console.log(
+            "PUNTO VENDITA:",
+            puntoVenditaId
+        );
 
         console.log(
             "ROW ID:",
             rowId
         );
 
+        console.log(
+            "================================="
+        );
+
         if (!rowId) {
 
             return {
+
                 successo: false,
+
                 rimosso: false,
-                errore: "Row ID mancante"
+
+                errore:
+                    "Row ID mancante"
+
             };
 
         }
 
-        const rowIdString = String(rowId);
+        const sessione =
+            getSessioneTiscali(
+                puntoVenditaId
+            );
 
-        // =====================================================
-        // 1. PAGINA CARRELLO
-        // =====================================================
-
-        console.log(
-            "GET PAGINA CARRELLO"
-        );
+        const tiscali =
+            sessione.tiscali;
 
         const rispostaCarrello =
             await tiscali.get(
                 "https://www.tiscaliformaggi.com/it/catalogo/carrello",
+
                 {
+
                     headers: {
+
                         "Referer":
                             "https://www.tiscaliformaggi.com/it/catalogo/carrello"
+
                     },
 
                     validateStatus:
                         () => true
+
                 }
             );
 
-        const html = rispostaCarrello.data;
-
-        console.log(
-            "STATUS CARRELLO:",
-            rispostaCarrello.status
-        );
-
-        console.log(
-            "TOKEN NELLA PAGINA:",
-            typeof html === "string" &&
-            html.includes("__RequestVerificationToken")
-        );
-
-        console.log(
-            "NUMERO OCCORRENZE TOKEN:",
-            typeof html === "string"
-                ? (html.match(/__RequestVerificationToken/g) || []).length
-                : 0
-        );
-
-        // =====================================================
-        // 2. DEBUG TOKEN
-        // =====================================================
-
-        const posizioneToken =
-            typeof html === "string"
-                ? html.indexOf("__RequestVerificationToken")
-                : -1;
-
-        console.log(
-            "POSIZIONE TOKEN:",
-            posizioneToken
-        );
-
-        if (posizioneToken !== -1) {
-
-            console.log(
-                "HTML INTORNO AL TOKEN:"
-            );
-
-            console.log(
-                html.substring(
-                    Math.max(0, posizioneToken - 500),
-                    posizioneToken + 1000
-                )
-            );
-
-        }
-
-        // =====================================================
-        // 3. TOKEN CSRF
-        // =====================================================
+        const html =
+            rispostaCarrello.data;
 
         const $ =
             cheerio.load(html);
 
         let token = null;
 
-        $('input[name="__RequestVerificationToken"]')
-            .each(
-                (i, elemento) => {
+        $(
+            'input[name="__RequestVerificationToken"]'
+        ).each(
+            (i, elemento) => {
 
-                    if (!token) {
+                if (!token) {
 
-                        token =
-                            $(elemento).attr("value");
-
-                    }
+                    token =
+                        $(elemento).attr(
+                            "value"
+                        );
 
                 }
-            );
+
+            }
+        );
 
         if (!token) {
 
@@ -2037,9 +2447,8 @@ async function rimuoviProdottoCarrelloTiscali(rowId) {
             token.length
         );
 
-        // =====================================================
-        // 4. PREPARA DATI REMOVE
-        // =====================================================
+        const rowIdString =
+            String(rowId);
 
         const dati =
             new URLSearchParams();
@@ -2060,10 +2469,6 @@ async function rimuoviProdottoCarrelloTiscali(rowId) {
         );
 
         console.log(
-            "================================="
-        );
-
-        console.log(
             "INVIO POST /Async/Cart/Remove"
         );
 
@@ -2071,23 +2476,6 @@ async function rimuoviProdottoCarrelloTiscali(rowId) {
             "_id:",
             rowIdString
         );
-
-        console.log(
-            "_tipologia:",
-            "0"
-        );
-
-        console.log(
-            "DATI POST:",
-            dati.toString().replace(
-                /__RequestVerificationToken=[^&]+/,
-                "__RequestVerificationToken=TOKEN"
-            )
-        );
-
-        // =====================================================
-        // 5. REMOVE
-        // =====================================================
 
         const rispostaRemove =
             await tiscali.post(
@@ -2097,6 +2485,7 @@ async function rimuoviProdottoCarrelloTiscali(rowId) {
                 dati.toString(),
 
                 {
+
                     headers: {
 
                         "Content-Type":
@@ -2134,14 +2523,11 @@ async function rimuoviProdottoCarrelloTiscali(rowId) {
             { depth: null }
         );
 
-        // =====================================================
-        // 6. ANALISI RISPOSTA
-        // =====================================================
-
         let risultatoRemove;
 
         if (
-            typeof rispostaRemove.data === "string"
+            typeof rispostaRemove.data ===
+            "string"
         ) {
 
             try {
@@ -2172,30 +2558,10 @@ async function rimuoviProdottoCarrelloTiscali(rowId) {
         const rimosso =
             risultatoRemove?.rimosso === true;
 
-        console.log(
-            "TISCALI CONFERMA RIMOZIONE:",
-            rimosso
-        );
-
-        // =====================================================
-        // 7. VERIFICA CARRELLO
-        // =====================================================
-
         const verifica =
-            await leggiCarrelloTiscali();
-
-        console.log(
-            "CARRELLO DOPO RIMOZIONE:"
-        );
-
-        console.dir(
-            verifica,
-            { depth: null }
-        );
-
-        // =====================================================
-        // 8. RISULTATO
-        // =====================================================
+            await leggiCarrelloTiscali(
+                puntoVenditaId
+            );
 
         return {
 
@@ -2204,6 +2570,9 @@ async function rimuoviProdottoCarrelloTiscali(rowId) {
                 rimosso,
 
             rimosso,
+
+            puntoVenditaId:
+                String(puntoVenditaId),
 
             rowId:
                 rowIdString,
@@ -2219,20 +2588,8 @@ async function rimuoviProdottoCarrelloTiscali(rowId) {
     } catch (errore) {
 
         console.error(
-            "================================="
-        );
-
-        console.error(
-            "ERRORE RIMOZIONE CARRELLO"
-        );
-
-        console.error(
-            "MESSAGGIO:",
+            "ERRORE RIMOZIONE CARRELLO:",
             errore.message
-        );
-
-        console.error(
-            "================================="
         );
 
         return {
@@ -2240,6 +2597,11 @@ async function rimuoviProdottoCarrelloTiscali(rowId) {
             successo: false,
 
             rimosso: false,
+
+            puntoVenditaId:
+                puntoVenditaId != null
+                    ? String(puntoVenditaId)
+                    : null,
 
             errore:
                 errore.message
@@ -2249,99 +2611,159 @@ async function rimuoviProdottoCarrelloTiscali(rowId) {
     }
 
 }
-async function svuotaCarrelloTiscali() {
 
-    console.log("=================================");
-    console.log("SVUOTAMENTO CARRELLO DISATTIVATO");
-    console.log("IL CARRELLO TISCALI NON VERRA' CANCELLATO");
-    console.log("=================================");
+
+// =====================================================
+// SVUOTA CARRELLO
+// =====================================================
+
+async function svuotaCarrelloTiscali(
+    puntoVenditaId
+) {
+
+    console.log(
+        "================================="
+    );
+
+    console.log(
+        "SVUOTAMENTO CARRELLO DISATTIVATO"
+    );
+
+    console.log(
+        "PUNTO VENDITA:",
+        puntoVenditaId
+    );
+
+    console.log(
+        "IL CARRELLO TISCALI NON VERRA' CANCELLATO"
+    );
+
+    console.log(
+        "================================="
+    );
 
     return {
-        successo: true,
-        carrelloVuoto: true,
-        numeroRimossi: 0,
-        rimossi: [],
-        errori: [],
-        disattivato: true
-    };
-}
-async function contaArticoliCarrelloTiscali() {
 
-    console.log("=================================");
-    console.log("LETTURA COMPLETA CARRELLO TISCALI");
-    console.log("=================================");
+        successo: true,
+
+        puntoVenditaId:
+            puntoVenditaId != null
+                ? String(puntoVenditaId)
+                : null,
+
+        carrelloVuoto: true,
+
+        numeroRimossi: 0,
+
+        rimossi: [],
+
+        errori: [],
+
+        disattivato: true
+
+    };
+
+}
+
+
+// =====================================================
+// CONTA ARTICOLI CARRELLO
+// =====================================================
+
+async function contaArticoliCarrelloTiscali(
+    puntoVenditaId
+) {
+
+    console.log(
+        "================================="
+    );
+
+    console.log(
+        "LETTURA COMPLETA CARRELLO TISCALI"
+    );
+
+    console.log(
+        "PUNTO VENDITA:",
+        puntoVenditaId
+    );
+
+    console.log(
+        "================================="
+    );
 
     try {
 
-        const risposta = await tiscali.get(
-            "https://www.tiscaliformaggi.com/it/catalogo/carrello",
-            {
-                headers: {
-                    "Referer":
-                        "https://www.tiscaliformaggi.com/it/catalogo/ordini",
+        const sessione =
+            getSessioneTiscali(
+                puntoVenditaId
+            );
 
-                    "X-Requested-With":
-                        "XMLHttpRequest"
-                },
+        const tiscali =
+            sessione.tiscali;
 
-                validateStatus: () => true
-            }
+        const risposta =
+            await tiscali.get(
+                "https://www.tiscaliformaggi.com/it/catalogo/carrello",
+
+                {
+
+                    headers: {
+
+                        "Referer":
+                            "https://www.tiscaliformaggi.com/it/catalogo/ordini",
+
+                        "X-Requested-With":
+                            "XMLHttpRequest"
+
+                    },
+
+                    validateStatus:
+                        () => true
+
+                }
+            );
+
+        const html =
+            risposta.data;
+
+        console.log(
+            "STATUS:",
+            risposta.status
         );
 
-        const html = risposta.data;
+        console.log(
+            "LUNGHEZZA HTML:",
+            html.length
+        );
 
-console.log("STATUS:", risposta.status);
-console.log("LUNGHEZZA HTML:", html.length);
+        console.log(
+            "URL CARRELLO:",
+            risposta.request?.res?.responseUrl
+        );
 
-console.log(
-    "URL CARRELLO:",
-    risposta.request?.res?.responseUrl
-);
+        console.log(
+            "CARRELLO CONTIENE FORM. GRANA PADANO:",
+            html.includes(
+                "FORM. GRANA PADANO"
+            )
+        );
 
-console.log(
-    "CARRELLO CONTIENE FORM. GRANA PADANO:",
-    html.includes("FORM. GRANA PADANO")
-);
+        console.log(
+            "CARRELLO CONTIENE CODICE 2025:",
+            html.includes("2025")
+        );
 
-console.log(
-    "CARRELLO CONTIENE CODICE 2025:",
-    html.includes("2025")
-);
-
-console.log(
-    "CARRELLO CONTIENE VINO SANGIOVESE:",
-    html.includes("VINO SANGIOVESE")
-);
-
-console.log(
-    "PRIMI 2000 CARATTERI DEL CARRELLO:"
-);
-
-console.log(
-    html.substring(0, 2000)
-);
-console.log("=================================");
-console.log("### ARRIVATO QUI ###");
-console.log("RICERCA ARTICOLO 2025");
-console.log("=================================");
-
-const posizione2025 = html.indexOf("FORM. GRANA PADANO");
-
-console.log("POSIZIONE ARTICOLO:", posizione2025);
-
-if (posizione2025 !== -1) {
-    console.log(
-        html.substring(
-            Math.max(0, posizione2025 - 1500),
-            posizione2025 + 3000
-        )
-    );
-}
+        console.log(
+            "CARRELLO CONTIENE VINO SANGIOVESE:",
+            html.includes(
+                "VINO SANGIOVESE"
+            )
+        );
 
         const articoli = [];
 
         /*
-         * Struttura reale trovata nel carrello:
+         * Struttura reale:
          *
          * <div
          *   data-entryid="5863"
@@ -2350,40 +2772,63 @@ if (posizione2025 !== -1) {
          *   class="ecCartCustomComp-cartTableRow ... incart row">
          */
 
-        const regex = /<div\b[^>]*data-entryid=["']([^"']+)["'][^>]*data-quantity=["']([^"']+)["'][^>]*id=["']([^"']+)["'][^>]*class=["'][^"']*ecCartCustomComp-cartTableRow[^"']*["'][^>]*>/gi;
+        const regex =
+            /<div\b[^>]*data-entryid=["']([^"']+)["'][^>]*data-quantity=["']([^"']+)["'][^>]*id=["']([^"']+)["'][^>]*class=["'][^"']*ecCartCustomComp-cartTableRow[^"']*["'][^>]*>/gi;
 
         let match;
 
-        while ((match = regex.exec(html)) !== null) {
+        while (
+            (match = regex.exec(html)) !== null
+        ) {
 
-            const productId = match[1];
-            const quantita = match[2];
-            const rowId = match[3];
+            const productId =
+                match[1];
+
+            const quantita =
+                match[2];
+
+            const rowId =
+                match[3];
 
             articoli.push({
+
                 productId,
+
                 quantita,
+
                 rowId
+
             });
+
         }
 
-        console.log("=================================");
-        console.log("ARTICOLI TROVATI:", articoli.length);
-        console.log("=================================");
+        console.log(
+            "ARTICOLI TROVATI:",
+            articoli.length
+        );
 
-        console.dir(articoli, {
-            depth: null
-        });
+        console.dir(
+            articoli,
+            {
+                depth: null
+            }
+        );
 
         return {
 
             successo: true,
 
-            status: risposta.status,
+            status:
+                risposta.status,
 
-            lunghezzaHTML: html.length,
+            puntoVenditaId:
+                String(puntoVenditaId),
 
-            numeroArticoli: articoli.length,
+            lunghezzaHTML:
+                html.length,
+
+            numeroArticoli:
+                articoli.length,
 
             articoli,
 
@@ -2411,8 +2856,12 @@ if (posizione2025 !== -1) {
 
             successo: false,
 
+            puntoVenditaId:
+                String(puntoVenditaId),
+
             status:
-                errore.response?.status || null,
+                errore.response?.status ||
+                null,
 
             errore:
                 errore.message,
@@ -2422,33 +2871,74 @@ if (posizione2025 !== -1) {
             articoli: []
 
         };
-    }
-}
-async function trovaProdottoNelCarrello(productId) {
 
-    console.log("=== CERCA PRODOTTO NEL CARRELLO ===");
-    console.log("PRODUCT ID:", productId);
+    }
+
+}
+
+
+// =====================================================
+// TROVA PRODOTTO NEL CARRELLO
+// =====================================================
+
+async function trovaProdottoNelCarrello(
+    puntoVenditaId,
+    productId
+) {
+
+    console.log(
+        "=== CERCA PRODOTTO NEL CARRELLO ==="
+    );
+
+    console.log(
+        "PUNTO VENDITA:",
+        puntoVenditaId
+    );
+
+    console.log(
+        "PRODUCT ID:",
+        productId
+    );
 
     try {
 
-        const risultato = await contaArticoliCarrelloTiscali();
+        const risultato =
+            await contaArticoliCarrelloTiscali(
+                puntoVenditaId
+            );
 
         if (!risultato.successo) {
 
             return {
+
                 trovato: false,
-                productId: String(productId),
+
+                puntoVenditaId:
+                    String(puntoVenditaId),
+
+                productId:
+                    String(productId),
+
                 quantita: 0,
+
                 rowId: null,
-                errore: risultato.errore || "Errore lettura carrello"
+
+                errore:
+                    risultato.errore ||
+                    "Errore lettura carrello"
+
             };
 
         }
 
-        const prodotto = risultato.articoli.find(
-            articolo =>
-                String(articolo.productId) === String(productId)
-        );
+        const prodotto =
+            risultato.articoli.find(
+                articolo =>
+                    String(
+                        articolo.productId
+                    ) ===
+                    String(productId)
+            );
 
         if (!prodotto) {
 
@@ -2458,18 +2948,32 @@ async function trovaProdottoNelCarrello(productId) {
             );
 
             return {
+
                 trovato: false,
-                productId: String(productId),
+
+                puntoVenditaId:
+                    String(puntoVenditaId),
+
+                productId:
+                    String(productId),
+
                 quantita: 0,
+
                 rowId: null
+
             };
 
         }
 
-        const quantitaNumerica = parseFloat(
-            String(prodotto.quantita)
-                .replace(",", ".")
-        );
+        const quantitaNumerica =
+            parseFloat(
+                String(
+                    prodotto.quantita
+                ).replace(
+                    ",",
+                    "."
+                )
+            );
 
         console.log(
             "PRODOTTO TROVATO:",
@@ -2480,13 +2984,23 @@ async function trovaProdottoNelCarrello(productId) {
 
             trovato: true,
 
-            productId: String(prodotto.productId),
+            puntoVenditaId:
+                String(puntoVenditaId),
 
-            quantita: isNaN(quantitaNumerica)
-                ? 0
-                : quantitaNumerica,
+            productId:
+                String(
+                    prodotto.productId
+                ),
 
-            rowId: prodotto.rowId
+            quantita:
+                isNaN(
+                    quantitaNumerica
+                )
+                    ? 0
+                    : quantitaNumerica,
+
+            rowId:
+                prodotto.rowId
 
         };
 
@@ -2501,33 +3015,61 @@ async function trovaProdottoNelCarrello(productId) {
 
             trovato: false,
 
-            productId: String(productId),
+            puntoVenditaId:
+                String(puntoVenditaId),
+
+            productId:
+                String(productId),
 
             quantita: 0,
 
             rowId: null,
 
-            errore: errore.message
+            errore:
+                errore.message
 
         };
 
     }
+
 }
+
+
+// =====================================================
+// EXPORT
+// =====================================================
+
 module.exports = {
+
     testaTiscali,
+
     leggiPaginaLogin,
+
     loginTiscali,
+
     verificaSessioneTiscali,
+
     cercaProdottoTiscali,
-aggiungiAlCarrelloTiscali,
-verificaCarrelloTiscali,
-analizzaEliminazioneCarrelloTiscali,
-leggiCarrelloTiscali,
-aggiornaMiniCartTiscali,
-rimuoviProdottoCarrelloTiscali,
-contaArticoliCarrelloTiscali,
-debugCookieTiscali,
-trovaProdottoNelCarrello,
-svuotaCarrelloTiscali
+
+    aggiungiAlCarrelloTiscali,
+
+    verificaCarrelloTiscali,
+
+    analizzaEliminazioneCarrelloTiscali,
+
+    leggiCarrelloTiscali,
+
+    aggiornaMiniCartTiscali,
+
+    rimuoviProdottoCarrelloTiscali,
+
+    contaArticoliCarrelloTiscali,
+
+    debugCookieTiscali,
+
+    trovaProdottoNelCarrello,
+
+    svuotaCarrelloTiscali
 
 };
+
