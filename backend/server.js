@@ -1,4 +1,3 @@
-
 // =====================================================
 // AVVIO SERVER
 // =====================================================
@@ -24,6 +23,9 @@ const ordini = require("./ordini");
 const app = express();
 
 const PORT = process.env.PORT || 3000;
+
+
+
 
 
 // =====================================================
@@ -72,105 +74,6 @@ const upload = multer({
 app.use(cors());
 
 app.use(express.json());
-
-
-// =====================================================
-// SESSIONE TISCALI - VERIFICA PUNTO VENDITA
-// =====================================================
-
-async function verificaSessioneTiscali(
-    puntoVenditaId
-) {
-
-    const id =
-        Number(puntoVenditaId);
-
-    if (!id) {
-
-        throw new Error(
-            "puntoVenditaId non valido"
-        );
-
-    }
-
-
-    const puntoVendita =
-        await new Promise(
-            (resolve, reject) => {
-
-                ordiniDatabase.getPuntoVenditaById(
-                    id,
-                    (err, punto) => {
-
-                        if (err) {
-
-                            reject(err);
-                            return;
-
-                        }
-
-                        resolve(punto);
-
-                    }
-                );
-
-            }
-        );
-
-
-    if (!puntoVendita) {
-
-        throw new Error(
-            "Punto vendita non trovato"
-        );
-
-    }
-
-
-    if (
-        !puntoVendita.tiscaliUsername ||
-        !puntoVendita.tiscaliPassword
-    ) {
-
-        throw new Error(
-            "Credenziali Tiscali non configurate"
-        );
-
-    }
-
-
-    const login =
-        await tiscali.loginTiscali(
-            id,
-            puntoVendita.tiscaliUsername,
-            puntoVendita.tiscaliPassword
-        );
-
-
-    if (
-        !login ||
-        login.successo !== true
-    ) {
-
-        throw new Error(
-            login?.errore ||
-            "Login Tiscali fallito"
-        );
-
-    }
-
-
-    return {
-
-        puntoVendita,
-
-        login,
-
-        puntoVenditaId: id
-
-    };
-
-}
 
 
 // =====================================================
@@ -294,7 +197,6 @@ app.get("/prodotti", (req, res) => {
     });
 
 });
-
 
 // =====================================================
 // MODIFICA CODICE PRODOTTO
@@ -545,8 +447,9 @@ app.post("/ordine/azzera", (req, res) => {
 
 app.post("/ordine/apri", (req, res) => {
 
-    const puntoVenditaId =
-        Number(req.body.puntoVenditaId);
+    const {
+        puntoVenditaId
+    } = req.body;
 
     if (!puntoVenditaId) {
 
@@ -585,17 +488,7 @@ app.post("/ordine/apri", (req, res) => {
 app.get("/ordine/:puntoVenditaId", (req, res) => {
 
     const id =
-        Number(req.params.puntoVenditaId);
-
-    if (!id) {
-
-        return res.status(400).json({
-            successo: false,
-            errore:
-                "Punto vendita non valido"
-        });
-
-    }
+        req.params.puntoVenditaId;
 
     ordiniDatabase.getOrdineAperto(
         id,
@@ -926,59 +819,59 @@ app.post(
                     });
 
             console.log(
-                "PRODOTTI CREATI:",
-                dati.length
+    "PRODOTTI CREATI:",
+    dati.length
+);
+
+console.log(
+    "SALVATAGGIO LISTA IN SUPABASE..."
+);
+
+listaProdotti.sostituisciListaProdotti(
+    dati,
+    (erroreSalvataggio) => {
+
+        if (erroreSalvataggio) {
+
+            console.error(
+                "ERRORE SALVATAGGIO LISTA SUPABASE:",
+                erroreSalvataggio
             );
 
-            console.log(
-                "SALVATAGGIO LISTA IN SUPABASE..."
-            );
+            return res.status(500).json({
 
-            listaProdotti.sostituisciListaProdotti(
-                dati,
-                (erroreSalvataggio) => {
+                successo: false,
 
-                    if (erroreSalvataggio) {
+                errore:
+                    "Errore salvataggio lista prodotti",
 
-                        console.error(
-                            "ERRORE SALVATAGGIO LISTA SUPABASE:",
-                            erroreSalvataggio
-                        );
+                dettaglio:
+                    erroreSalvataggio.message
 
-                        return res.status(500).json({
+            });
 
-                            successo: false,
+        }
 
-                            errore:
-                                "Errore salvataggio lista prodotti",
+        console.log(
+            "LISTA SALVATA IN SUPABASE:",
+            dati.length
+        );
 
-                            dettaglio:
-                                erroreSalvataggio.message
+        console.log(
+            "INVIO PRODOTTI AL TELEFONO:",
+            dati.length
+        );
 
-                        });
+        return res.json({
 
-                    }
+            successo: true,
 
-                    console.log(
-                        "LISTA SALVATA IN SUPABASE:",
-                        dati.length
-                    );
+            prodotti: dati
 
-                    console.log(
-                        "INVIO PRODOTTI AL TELEFONO:",
-                        dati.length
-                    );
+        });
 
-                    return res.json({
-
-                        successo: true,
-
-                        prodotti: dati
-
-                    });
-
-                }
-            );
+    }
+);
 
         } catch (errore) {
 
@@ -1015,24 +908,6 @@ app.post(
             const prodottiExcel =
                 req.body.prodotti || [];
 
-            const puntoVenditaId =
-                Number(req.body.puntoVenditaId);
-
-
-            if (!puntoVenditaId) {
-
-                return res.status(400).json({
-
-                    successo: false,
-
-                    errore:
-                        "puntoVenditaId mancante"
-
-                });
-
-            }
-
-
             if (
                 !Array.isArray(prodottiExcel) ||
                 prodottiExcel.length === 0
@@ -1049,14 +924,7 @@ app.post(
 
             }
 
-
-            await verificaSessioneTiscali(
-                puntoVenditaId
-            );
-
-
             const risultati = [];
-
 
             for (const prodotto of prodottiExcel) {
 
@@ -1069,13 +937,10 @@ app.post(
                     continue;
                 }
 
-
                 const risultato =
                     await tiscali.cercaProdottoTiscali(
-                        puntoVenditaId,
                         codice
                     );
-
 
                 risultati.push({
 
@@ -1094,7 +959,6 @@ app.post(
 
                     trovato:
                         risultato.prodottoTrovato ||
-                        risultato.successo ||
                         false,
 
                     productId:
@@ -1104,7 +968,6 @@ app.post(
                 });
 
             }
-
 
             res.json({
 
@@ -1153,24 +1016,6 @@ app.post(
             const prodottiExcel =
                 req.body.prodotti || [];
 
-            const puntoVenditaId =
-                Number(req.body.puntoVenditaId);
-
-
-            if (!puntoVenditaId) {
-
-                return res.status(400).json({
-
-                    successo: false,
-
-                    errore:
-                        "puntoVenditaId mancante"
-
-                });
-
-            }
-
-
             if (
                 !Array.isArray(prodottiExcel) ||
                 prodottiExcel.length === 0
@@ -1187,14 +1032,7 @@ app.post(
 
             }
 
-
-            await verificaSessioneTiscali(
-                puntoVenditaId
-            );
-
-
             const risultati = [];
-
 
             for (const prodotto of prodottiExcel) {
 
@@ -1218,7 +1056,6 @@ app.post(
                         prodotto.quantita
                     ) || 0;
 
-
                 if (
                     !codice ||
                     quantita <= 0
@@ -1226,13 +1063,10 @@ app.post(
                     continue;
                 }
 
-
                 const ricerca =
                     await tiscali.cercaProdottoTiscali(
-                        puntoVenditaId,
                         codice
                     );
-
 
                 risultati.push({
 
@@ -1246,7 +1080,6 @@ app.post(
 
                     trovato:
                         ricerca.prodottoTrovato ||
-                        ricerca.successo ||
                         false,
 
                     productId:
@@ -1261,7 +1094,6 @@ app.post(
 
             }
 
-
             const trovati =
                 risultati.filter(
                     prodotto =>
@@ -1273,7 +1105,6 @@ app.post(
                     prodotto =>
                         !prodotto.trovato
                 );
-
 
             res.json({
 
@@ -1331,24 +1162,6 @@ app.post(
             const prodottiExcel =
                 req.body.prodotti || [];
 
-            const puntoVenditaId =
-                Number(req.body.puntoVenditaId);
-
-
-            if (!puntoVenditaId) {
-
-                return res.status(400).json({
-
-                    successo: false,
-
-                    errore:
-                        "puntoVenditaId mancante"
-
-                });
-
-            }
-
-
             if (
                 !Array.isArray(prodottiExcel) ||
                 prodottiExcel.length === 0
@@ -1365,18 +1178,12 @@ app.post(
 
             }
 
-
             console.log(
                 "================================="
             );
 
             console.log(
                 "ORDINE REALE → TISCALI"
-            );
-
-            console.log(
-                "PUNTO VENDITA:",
-                puntoVenditaId
             );
 
             console.log(
@@ -1390,15 +1197,28 @@ app.post(
 
 
             // -------------------------------------------------
-            // 1. RECUPERA E VERIFICA SESSIONE DEL PUNTO VENDITA
+            // 1. LOGIN
             // -------------------------------------------------
 
-            const {
-                puntoVendita
-            } =
-                await verificaSessioneTiscali(
-                    puntoVenditaId
+            const login =
+                await tiscali.loginTiscali(
+                    process.env.TISCALI_USERNAME,
+                    process.env.TISCALI_PASSWORD
                 );
+
+            if (!login.successo) {
+
+                return res.status(500).json({
+
+                    successo: false,
+
+                    fase: "login",
+
+                    login
+
+                });
+
+            }
 
 
             // -------------------------------------------------
@@ -1471,96 +1291,16 @@ app.post(
                 );
 
 
-                try {
-
-                    const ricerca =
-                        await tiscali.cercaProdottoTiscali(
-                            puntoVenditaId,
-                            codice
-                        );
-
-
-                    if (
-                        !ricerca ||
-                        !ricerca.successo ||
-                        !ricerca.productId
-                    ) {
-
-                        risultati.push({
-
-                            codice,
-
-                            descrizione,
-
-                            quantita,
-
-                            trovato: false,
-
-                            aggiunto: false,
-
-                            productId: null,
-
-                            errore:
-                                ricerca?.errore ||
-                                "Prodotto non trovato"
-
-                        });
-
-                        continue;
-
-                    }
-
-
-                    const productId =
-                        ricerca.productId;
-
-
-                    const aggiunta =
-                        await tiscali.aggiungiAlCarrelloTiscali(
-                            puntoVenditaId,
-                            productId,
-                            quantita
-                        );
-
-
-                    const aggiunto =
-                        aggiunta &&
-                        aggiunta.successo === true &&
-                        aggiunta.modalitaTest !== true;
-
-
-                    risultati.push({
-
-                        codice,
-
-                        descrizione,
-
-                        quantita,
-
-                        trovato: true,
-
-                        aggiunto,
-
-                        productId:
-                            String(productId),
-
-                        errore:
-                            aggiunto
-                                ? null
-                                : (
-                                    aggiunta?.errore ||
-                                    "Errore durante l'aggiunta"
-                                )
-
-                    });
-
-                } catch (erroreProdotto) {
-
-                    console.error(
-                        "ERRORE SINGOLO PRODOTTO:",
-                        codice,
-                        erroreProdotto
+                const ricerca =
+                    await tiscali.cercaProdottoTiscali(
+                        codice
                     );
+
+
+                if (
+                    !ricerca.successo ||
+                    !ricerca.productId
+                ) {
 
                     risultati.push({
 
@@ -1577,12 +1317,52 @@ app.post(
                         productId: null,
 
                         errore:
-                            erroreProdotto.message ||
-                            "Errore durante la gestione del prodotto"
+                            ricerca.errore ||
+                            "Prodotto non trovato"
 
                     });
 
+                    continue;
+
                 }
+
+
+                const productId =
+                    ricerca.productId;
+
+
+                const aggiunta =
+                    await tiscali.aggiungiAlCarrelloTiscali(
+                        productId,
+                        quantita
+                    );
+
+
+                risultati.push({
+
+                    codice,
+
+                    descrizione,
+
+                    quantita,
+
+                    trovato: true,
+
+                    aggiunto:
+                        aggiunta.successo === true,
+
+                    productId:
+                        String(productId),
+
+                    errore:
+                        aggiunta.successo
+                            ? null
+                            : (
+                                aggiunta.errore ||
+                                "Errore durante l'aggiunta"
+                            )
+
+                });
 
             }
 
@@ -1632,8 +1412,6 @@ app.post(
                 successo:
                     errori.length === 0,
 
-                puntoVenditaId,
-
                 numeroProdotti:
                     risultati.length,
 
@@ -1679,24 +1457,6 @@ app.post(
 
         try {
 
-            const puntoVenditaId =
-                Number(req.body.puntoVenditaId);
-
-
-            if (!puntoVenditaId) {
-
-                return res.status(400).json({
-
-                    successo: false,
-
-                    errore:
-                        "puntoVenditaId mancante"
-
-                });
-
-            }
-
-
             console.log(
                 "================================="
             );
@@ -1706,25 +1466,12 @@ app.post(
             );
 
             console.log(
-                "PUNTO VENDITA:",
-                puntoVenditaId
-            );
-
-            console.log(
                 "================================="
             );
 
 
-            await verificaSessioneTiscali(
-                puntoVenditaId
-            );
-
-
             const test =
-                await tiscali.leggiCarrelloTiscali(
-                    puntoVenditaId
-                );
-
+                await tiscali.leggiCarrelloTiscali();
 
             console.log(
                 "CONTROLLO PRIMA SVUOTAMENTO:",
@@ -1733,9 +1480,7 @@ app.post(
 
 
             const risultato =
-                await tiscali.svuotaCarrelloTiscali(
-                    puntoVenditaId
-                );
+                await tiscali.svuotaCarrelloTiscali();
 
 
             console.log(
@@ -1788,44 +1533,34 @@ app.get(
 
         try {
 
-            const puntoVenditaId =
-                Number(req.query.puntoVenditaId);
+            const login =
+                await tiscali.loginTiscali(
+                    process.env.TISCALI_USERNAME,
+                    process.env.TISCALI_PASSWORD
+                );
 
+            if (!login.successo) {
 
-            if (!puntoVenditaId) {
-
-                return res.status(400).json({
+                return res.status(500).json({
 
                     successo: false,
 
-                    errore:
-                        "puntoVenditaId mancante"
+                    fase: "login",
+
+                    login
 
                 });
 
             }
 
 
-            const {
-                puntoVendita,
-                login
-            } =
-                await verificaSessioneTiscali(
-                    puntoVenditaId
-                );
-
-
             const carrello =
-                await tiscali.leggiCarrelloTiscali(
-                    puntoVenditaId
-                );
+                await tiscali.leggiCarrelloTiscali();
 
 
             return res.json({
 
                 successo: true,
-
-                puntoVenditaId,
 
                 carrello
 
@@ -1860,42 +1595,26 @@ app.post(
         try {
 
             const {
-                puntoVenditaId,
                 productId
             } = req.body;
 
-            const id =
-                Number(puntoVenditaId);
-
-
-            if (
-                !id ||
-                !productId
-            ) {
+            if (!productId) {
 
                 return res.status(400).json({
 
                     successo: false,
 
                     errore:
-                        "Punto vendita o Product ID mancanti"
+                        "Product ID mancante"
 
                 });
 
             }
 
-
-            await verificaSessioneTiscali(
-                id
-            );
-
-
             const risultato =
                 await tiscali.rimuoviProdottoCarrelloTiscali(
-                    id,
                     productId
                 );
-
 
             return res.json(
                 risultato
@@ -1933,9 +1652,9 @@ app.post(
 
         try {
 
-            const puntoVenditaId =
-                Number(req.body.puntoVenditaId);
-
+            const {
+                puntoVenditaId
+            } = req.body;
 
             if (!puntoVenditaId) {
 
@@ -1948,17 +1667,69 @@ app.post(
             }
 
 
+            const puntoVendita =
+                await new Promise(
+                    (resolve, reject) => {
+
+                        ordiniDatabase.getPuntoVenditaById(
+                            puntoVenditaId,
+                            (err, punto) => {
+
+                                if (err) {
+                                    reject(err);
+                                    return;
+                                }
+
+                                resolve(punto);
+
+                            }
+                        );
+
+                    }
+                );
+
+
+            if (!puntoVendita) {
+
+                return res.status(404).json({
+
+                    successo: false,
+
+                    errore:
+                        "Punto vendita non trovato"
+
+                });
+
+            }
+
+
+            if (
+                !puntoVendita.tiscaliUsername ||
+                !puntoVendita.tiscaliPassword
+            ) {
+
+                return res.status(400).json({
+
+                    successo: false,
+
+                    errore:
+                        "Credenziali Tiscali non configurate"
+
+                });
+
+            }
+
+
             console.log(
                 "TEST LOGIN TISCALI - PUNTO VENDITA:",
                 puntoVenditaId
             );
 
 
-            const {
-                login
-            } =
-                await verificaSessioneTiscali(
-                    puntoVenditaId
+            const login =
+                await tiscali.loginTiscali(
+                    puntoVendita.tiscaliUsername,
+                    puntoVendita.tiscaliPassword
                 );
 
 
@@ -2016,9 +1787,9 @@ app.post(
 
         try {
 
-            const puntoVenditaId =
-                Number(req.body.puntoVenditaId);
-
+            const {
+                puntoVenditaId
+            } = req.body;
 
             if (!puntoVenditaId) {
 
@@ -2028,6 +1799,59 @@ app.post(
 
                     errore:
                         "puntoVenditaId mancante"
+
+                });
+
+            }
+
+
+            const puntoVendita =
+                await new Promise(
+                    (resolve, reject) => {
+
+                        ordiniDatabase.getPuntoVenditaById(
+                            puntoVenditaId,
+                            (err, punto) => {
+
+                                if (err) {
+                                    reject(err);
+                                    return;
+                                }
+
+                                resolve(punto);
+
+                            }
+                        );
+
+                    }
+                );
+
+
+            if (!puntoVendita) {
+
+                return res.status(404).json({
+
+                    successo: false,
+
+                    errore:
+                        "Punto vendita non trovato"
+
+                });
+
+            }
+
+
+            if (
+                !puntoVendita.tiscaliUsername ||
+                !puntoVendita.tiscaliPassword
+            ) {
+
+                return res.status(400).json({
+
+                    successo: false,
+
+                    errore:
+                        "Credenziali Tiscali non configurate"
 
                 });
 
@@ -2052,12 +1876,26 @@ app.post(
             );
 
 
-            const {
-                login
-            } =
-                await verificaSessioneTiscali(
-                    puntoVenditaId
+            const login =
+                await tiscali.loginTiscali(
+                    puntoVendita.tiscaliUsername,
+                    puntoVendita.tiscaliPassword
                 );
+
+
+            if (!login.successo) {
+
+                return res.status(500).json({
+
+                    successo: false,
+
+                    fase: "login",
+
+                    login
+
+                });
+
+            }
 
 
             console.log(
@@ -2066,9 +1904,7 @@ app.post(
 
 
             const carrello =
-                await tiscali.leggiCarrelloTiscali(
-                    puntoVenditaId
-                );
+                await tiscali.leggiCarrelloTiscali();
 
 
             console.log(
@@ -2164,6 +2000,10 @@ app.post(
             );
 
 
+            // -------------------------------------------------
+            // 1. LEGGE L'ORDINE DAL DATABASE
+            // -------------------------------------------------
+
             ordiniDatabase.getOrdineById(
                 ordineId,
                 async (err, ordine) => {
@@ -2248,47 +2088,107 @@ app.post(
 
 
                         // -------------------------------------------------
-                        // RECUPERA PUNTO VENDITA E SESSIONE CORRETTA
+                        // 2. RECUPERA IL PUNTO VENDITA
                         // -------------------------------------------------
 
-                        const puntoVenditaId =
-                            Number(
-                                ordine.puntoVenditaId
+                        const puntoVendita =
+                            await new Promise(
+                                (resolve, reject) => {
+
+                                    ordiniDatabase.getPuntoVenditaById(
+                                        ordine.puntoVenditaId,
+                                        (err, punto) => {
+
+                                            if (err) {
+                                                reject(err);
+                                                return;
+                                            }
+
+                                            resolve(punto);
+
+                                        }
+                                    );
+
+                                }
                             );
 
 
-                        if (!puntoVenditaId) {
+                        if (!puntoVendita) {
 
-                            return res.status(400).json({
+                            return res.status(404).json({
 
                                 successo: false,
 
-                                fase: "ordine",
+                                fase: "account",
 
                                 errore:
-                                    "Punto vendita dell'ordine non valido"
+                                    "Punto vendita non trovato"
 
                             });
 
                         }
 
 
-                        const {
-                            puntoVendita
-                        } =
-                            await verificaSessioneTiscali(
-                                puntoVenditaId
-                            );
+                        if (
+                            !puntoVendita.tiscaliUsername ||
+                            !puntoVendita.tiscaliPassword
+                        ) {
 
+                            return res.status(400).json({
 
-                        console.log(
-                            "LOGIN TISCALI OK - PUNTO VENDITA:",
-                            puntoVenditaId
-                        );
+                                successo: false,
+
+                                fase: "account",
+
+                                errore:
+                                    "Credenziali Tiscali non configurate"
+
+                            });
+
+                        }
 
 
                         // -------------------------------------------------
-                        // RICERCA + AGGIUNTA PRODOTTI
+                        // 3. LOGIN TISCALI
+                        // -------------------------------------------------
+
+                        console.log(
+                            "LOGIN TISCALI..."
+                        );
+
+
+                        const login =
+                            await tiscali.loginTiscali(
+                                puntoVendita.tiscaliUsername,
+                                puntoVendita.tiscaliPassword
+                            );
+
+
+                        if (!login.successo) {
+
+                            return res.status(500).json({
+
+                                successo: false,
+
+                                fase: "login",
+
+                                login
+
+                            });
+
+                        }
+
+
+                        console.log(
+                            "LOGIN TISCALI OK"
+                        );
+
+
+                        
+
+
+                                                // -------------------------------------------------
+                        // 4. RICERCA + AGGIUNTA PRODOTTI
                         // -------------------------------------------------
 
                         console.log(
@@ -2305,11 +2205,6 @@ app.post(
                         );
 
                         console.log(
-                            "PUNTO VENDITA:",
-                            puntoVenditaId
-                        );
-
-                        console.log(
                             "================================="
                         );
 
@@ -2317,271 +2212,316 @@ app.post(
                         const risultati = [];
 
 
-                        for (
-                            const prodotto
-                            of prodottiOrdine
-                        ) {
+// -------------------------------------------------
+// ELABORA TUTTI I PRODOTTI
+// UN ERRORE NON DEVE BLOCCARE IL RESTO DELL'ORDINE
+// -------------------------------------------------
 
-                            const codice =
-                                String(
-                                    prodotto.codice || ""
-                                ).trim();
+for (
+    const prodotto
+    of prodottiOrdine
+) {
 
-                            const quantita =
-                                Number(
-                                    prodotto.quantita || 0
-                                );
+    const codice =
+        String(
+            prodotto.codice || ""
+        ).trim();
 
+    const quantita =
+        Number(
+            prodotto.quantita || 0
+        );
 
-                            console.log(
-                                "---------------------------------"
-                            );
 
-                            console.log(
-                                "INIZIO ELABORAZIONE PRODOTTO:",
-                                codice
-                            );
+    console.log(
+        "---------------------------------"
+    );
 
-                            console.log(
-                                "QUANTITÀ:",
-                                quantita
-                            );
+    console.log(
+        "INIZIO ELABORAZIONE PRODOTTO:",
+        codice
+    );
 
+    console.log(
+        "QUANTITÀ:",
+        quantita
+    );
 
-                            try {
 
-                                console.log(
-                                    "RICERCA PRODOTTO:",
-                                    codice
-                                );
+    // -------------------------------------------------
+    // PROVA IL SINGOLO PRODOTTO
+    // -------------------------------------------------
 
+    try {
 
-                                const ricerca =
-                                    await tiscali.cercaProdottoTiscali(
-                                        puntoVenditaId,
-                                        codice
-                                    );
+        // -------------------------------------------------
+        // 1. RICERCA PRODOTTO
+        // -------------------------------------------------
 
+        console.log(
+            "RICERCA PRODOTTO:",
+            codice
+        );
 
-                                if (
-                                    !ricerca ||
-                                    !ricerca.successo ||
-                                    !ricerca.productId
-                                ) {
 
-                                    console.log(
-                                        "❌ PRODOTTO NON TROVATO:",
-                                        codice
-                                    );
+        const ricerca =
+            await tiscali.cercaProdottoTiscali(
+                codice
+            );
 
 
-                                    risultati.push({
+        // -------------------------------------------------
+        // PRODOTTO NON TROVATO
+        // -------------------------------------------------
 
-                                        codice,
+        if (
+            !ricerca ||
+            !ricerca.successo ||
+            !ricerca.productId
+        ) {
 
-                                        quantita,
+            console.log(
+                "❌ PRODOTTO NON TROVATO:",
+                codice
+            );
 
-                                        trovato: false,
 
-                                        aggiunto: false,
+            risultati.push({
 
-                                        productId: null,
+                codice,
 
-                                        errore:
-                                            ricerca?.errore ||
-                                            "Prodotto non trovato"
+                quantita,
 
-                                    });
+                trovato: false,
 
+                aggiunto: false,
 
-                                    continue;
+                productId: null,
 
-                                }
+                errore:
+                    ricerca?.errore ||
+                    "Prodotto non trovato"
 
+            });
 
-                                console.log(
-                                    "✅ PRODOTTO TROVATO:",
-                                    codice
-                                );
 
-                                console.log(
-                                    "PRODUCT ID:",
-                                    ricerca.productId
-                                );
+            // IMPORTANTISSIMO:
+            // passa direttamente al prodotto successivo
 
+            continue;
 
-                                console.log(
-                                    "AGGIUNTA AL CARRELLO:",
-                                    codice
-                                );
+        }
 
 
-                                const aggiunta =
-                                    await tiscali.aggiungiAlCarrelloTiscali(
-                                        puntoVenditaId,
-                                        ricerca.productId,
-                                        quantita
-                                    );
+        // -------------------------------------------------
+        // PRODOTTO TROVATO
+        // -------------------------------------------------
 
+        console.log(
+            "✅ PRODOTTO TROVATO:",
+            codice
+        );
 
-                                const aggiunto =
-                                    aggiunta &&
-                                    aggiunta.successo === true &&
-                                    aggiunta.modalitaTest !== true;
+        console.log(
+            "PRODUCT ID:",
+            ricerca.productId
+        );
 
 
-                                risultati.push({
+        // -------------------------------------------------
+        // 2. AGGIUNTA AL CARRELLO
+        // -------------------------------------------------
 
-                                    codice,
+        console.log(
+            "AGGIUNTA AL CARRELLO:",
+            codice
+        );
 
-                                    quantita,
 
-                                    productId:
-                                        ricerca.productId,
+        const aggiunta =
+            await tiscali.aggiungiAlCarrelloTiscali(
+                ricerca.productId,
+                quantita
+            );
 
-                                    trovato: true,
 
-                                    aggiunto,
+        const aggiunto =
+            aggiunta &&
+            aggiunta.successo === true &&
+            aggiunta.modalitaTest !== true;
 
-                                    errore:
-                                        aggiunto
-                                            ? null
-                                            : (
-                                                aggiunta?.errore ||
-                                                "Errore durante l'aggiunta al carrello"
-                                            ),
 
-                                    modalitaTest:
-                                        aggiunta?.modalitaTest === true
+        // -------------------------------------------------
+        // SALVA RISULTATO
+        // -------------------------------------------------
 
-                                });
+        risultati.push({
 
+            codice,
 
-                                if (aggiunto) {
+            quantita,
 
-                                    console.log(
-                                        "✅ PRODOTTO AGGIUNTO:",
-                                        codice
-                                    );
+            productId:
+                ricerca.productId,
 
-                                } else {
+            trovato: true,
 
-                                    console.log(
-                                        "❌ ERRORE AGGIUNTA:",
-                                        codice
-                                    );
+            aggiunto,
 
-                                    console.log(
-                                        "ERRORE:",
-                                        aggiunta?.errore ||
-                                        "Errore durante l'aggiunta"
-                                    );
+            errore:
+                aggiunto
+                    ? null
+                    : (
+                        aggiunta?.errore ||
+                        "Errore durante l'aggiunta al carrello"
+                    ),
 
-                                }
+            modalitaTest:
+                aggiunta?.modalitaTest === true
 
+        });
 
-                            } catch (erroreProdotto) {
 
-                                console.error(
-                                    "❌ ERRORE SINGOLO PRODOTTO:",
-                                    codice
-                                );
+        if (aggiunto) {
 
-                                console.error(
-                                    erroreProdotto
-                                );
+            console.log(
+                "✅ PRODOTTO AGGIUNTO:",
+                codice
+            );
 
+        } else {
 
-                                risultati.push({
+            console.log(
+                "❌ ERRORE AGGIUNTA:",
+                codice
+            );
 
-                                    codice,
+            console.log(
+                "ERRORE:",
+                aggiunta?.errore ||
+                "Errore durante l'aggiunta"
+            );
 
-                                    quantita,
+        }
 
-                                    trovato: false,
 
-                                    aggiunto: false,
+    } catch (erroreProdotto) {
 
-                                    productId: null,
+        // -------------------------------------------------
+        // ERRORE IMPREVISTO DEL SINGOLO PRODOTTO
+        // NON BLOCCA GLI ALTRI
+        // -------------------------------------------------
 
-                                    errore:
-                                        erroreProdotto.message ||
-                                        "Errore durante la gestione del prodotto"
+        console.error(
+            "❌ ERRORE SINGOLO PRODOTTO:",
+            codice
+        );
 
-                                });
+        console.error(
+            erroreProdotto
+        );
 
 
-                                continue;
+        risultati.push({
 
-                            }
+            codice,
 
-                        }
+            quantita,
+
+            trovato: false,
+
+            aggiunto: false,
+
+            productId: null,
+
+            errore:
+                erroreProdotto.message ||
+                "Errore durante la gestione del prodotto"
+
+        });
+
+
+        // IMPORTANTISSIMO:
+        // continua con il prossimo prodotto
+
+        continue;
+
+    }
+
+}
 
 
                         const errori =
-                            risultati.filter(
-                                p =>
-                                    !p.aggiunto &&
-                                    p.trovato === true &&
-                                    p.modalitaTest !== true
-                            );
+    risultati.filter(
+        p =>
+            !p.aggiunto &&
+            p.trovato === true &&
+            p.modalitaTest !== true
+    );
+
+const prodottiNonTrovati =
+    risultati.filter(
+        p =>
+            p.trovato === false
+    );
 
 
-                        const prodottiNonTrovati =
-                            risultati.filter(
-                                p =>
-                                    p.trovato === false
-                            );
+// -------------------------------------------------
+// CONTROLLO ORDINE COMPLETATO
+// -------------------------------------------------
+
+const ordineCompletato =
+    errori.length === 0 &&
+    prodottiNonTrovati.length === 0;
 
 
-                        const ordineCompletato =
-                            errori.length === 0 &&
-                            prodottiNonTrovati.length === 0;
+console.log(
+    "================================="
+);
+
+console.log(
+    "VERIFICA COMPLETAMENTO ORDINE"
+);
+
+console.log(
+    "PRODOTTI TOTALI:",
+    risultati.length
+);
+
+console.log(
+    "PRODOTTI AGGIUNTI:",
+    risultati.filter(
+        p => p.aggiunto
+    ).length
+);
+
+console.log(
+    "PRODOTTI CON ERRORE:",
+    errori.length
+);
+
+console.log(
+    "PRODOTTI NON TROVATI:",
+    prodottiNonTrovati.length
+);
+
+console.log(
+    "ORDINE COMPLETATO:",
+    ordineCompletato
+);
+
+console.log(
+    "================================="
+);
 
 
-                        console.log(
-                            "================================="
-                        );
+// -------------------------------------------------
+// 5. CHIUDE ORDINE DB SOLO SE TUTTO OK
+// -------------------------------------------------
 
-                        console.log(
-                            "VERIFICA COMPLETAMENTO ORDINE"
-                        );
-
-                        console.log(
-                            "PRODOTTI TOTALI:",
-                            risultati.length
-                        );
-
-                        console.log(
-                            "PRODOTTI AGGIUNTI:",
-                            risultati.filter(
-                                p => p.aggiunto
-                            ).length
-                        );
-
-                        console.log(
-                            "PRODOTTI CON ERRORE:",
-                            errori.length
-                        );
-
-                        console.log(
-                            "PRODOTTI NON TROVATI:",
-                            prodottiNonTrovati.length
-                        );
-
-                        console.log(
-                            "ORDINE COMPLETATO:",
-                            ordineCompletato
-                        );
-
-                        console.log(
-                            "================================="
-                        );
-
-
-                        if (
-                            ordineCompletato
-                        ) {
+if (
+    ordineCompletato
+) {
 
                             await new Promise(
                                 (resolve) => {
@@ -2619,15 +2559,17 @@ app.post(
                         }
 
 
+                        // -------------------------------------------------
+                        // 6. RISPOSTA FINALE
+                        // -------------------------------------------------
+
                         return res.json({
 
-                            successo:
-                                ordineCompletato,
+    successo:
+        ordineCompletato,
 
                             ordineId:
                                 ordine.ordineId,
-
-                            puntoVenditaId,
 
                             prodottiInviati:
                                 prodottiOrdine.length,
@@ -2641,13 +2583,14 @@ app.post(
                             prodottiConErrore:
                                 errori.length,
 
-                            prodottiNonTrovati:
-                                prodottiNonTrovati.length,
+                                prodottiNonTrovati:
+    prodottiNonTrovati.length,
 
                             risultati
 
-                        });
+                            
 
+                        });
 
                     } catch (erroreInterno) {
 
@@ -2831,6 +2774,10 @@ app.post(
         }
 
 
+        // -------------------------------------------------
+        // 1. CONTROLLO AMMINISTRATORE
+        // -------------------------------------------------
+
         ordiniDatabase.verificaLoginAmministratore(
             codice,
             password,
@@ -2879,6 +2826,10 @@ app.post(
                 }
 
 
+                // -------------------------------------------------
+                // 2. CONTROLLO PUNTO VENDITA
+                // -------------------------------------------------
+
                 ordiniDatabase.verificaLogin(
                     codice,
                     password,
@@ -2923,9 +2874,7 @@ app.post(
                             successo: true,
 
                             puntoVenditaId:
-                                Number(
-                                    puntoVendita.id
-                                ),
+                                puntoVendita.id,
 
                             amministratoreId:
                                 null,
@@ -3103,45 +3052,45 @@ app.post(
 
 
                 ordiniDatabase.creaPuntoVendita(
-                    nome,
-                    codice,
-                    password,
-                    tiscaliUsername || "",
-                    tiscaliPassword || "",
-                    (errore, idPuntoVendita) => {
+    nome,
+    codice,
+    password,
+    tiscaliUsername || "",
+    tiscaliPassword || "",
+    (errore, idPuntoVendita) => {
 
-                        if (errore) {
+        if (errore) {
 
-                            console.error(
-                                "Errore creazione punto vendita:",
-                                errore
-                            );
+            console.error(
+                "Errore creazione punto vendita:",
+                errore
+            );
 
-                            return res.status(500).json({
+            return res.status(500).json({
 
-                                successo: false,
+                successo: false,
 
-                                errore:
-                                    errore.message
+                errore:
+                    errore.message
 
-                            });
+            });
 
-                        }
+        }
 
-                        return res.json({
+        return res.json({
 
-                            successo: true,
+            successo: true,
 
-                            messaggio:
-                                "Punto vendita creato",
+            messaggio:
+                "Punto vendita creato",
 
-                            puntoVenditaId:
-                                idPuntoVendita
+            puntoVenditaId:
+                idPuntoVendita
 
-                        });
+        });
 
-                    }
-                );
+    }
+);
 
             }
         );
@@ -3471,9 +3420,7 @@ app.get(
     (req, res) => {
 
         const id =
-            Number(
-                req.params.id
-            );
+            req.params.id;
 
 
         ordiniDatabase.getPuntoVenditaById(
@@ -3557,3 +3504,4 @@ app.listen(
 
     }
 );
+
