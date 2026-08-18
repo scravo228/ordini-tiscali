@@ -4,6 +4,11 @@ const supabase = require("./database");
 // =====================================================
 // RECUPERA TUTTA LA LISTA PRODOTTI
 // =====================================================
+//
+// lista_prodotti è il catalogo condiviso.
+// La quantità dell'ordine NON deve stare qui.
+// Per compatibilità con il frontend restituiamo sempre quantita: 0.
+// =====================================================
 
 function getListaProdotti(callback) {
 
@@ -13,42 +18,11 @@ function getListaProdotti(callback) {
             id,
             codice,
             descrizione,
-            unita,
-            quantita
+            unita
         `)
         .order("id", {
             ascending: true
         })
-        .then(({ data, error }) => {
-
-            if (error) {
-                callback(error, null);
-                return;
-            }
-
-            callback(null, data || []);
-
-        })
-        .catch((err) => {
-
-            callback(err, null);
-
-        });
-
-}
-
-function modificaCodiceProdotto(
-    id,
-    nuovoCodice,
-    callback
-) {
-
-    supabase
-        .from("lista_prodotti")
-        .update({
-            codice: nuovoCodice
-        })
-        .eq("id", id)
         .then(({ data, error }) => {
 
             if (error) {
@@ -62,9 +36,24 @@ function modificaCodiceProdotto(
 
             }
 
+
+            const prodotti =
+                (data || []).map(
+                    prodotto => ({
+
+                        ...prodotto,
+
+                        // IMPORTANTE:
+                        // la lista globale deve partire sempre vuota
+                        quantita: 0
+
+                    })
+                );
+
+
             callback(
                 null,
-                data
+                prodotti
             );
 
         })
@@ -80,9 +69,12 @@ function modificaCodiceProdotto(
 }
 
 
-
 // =====================================================
 // SOSTITUISCE TUTTA LA LISTA PRODOTTI
+// =====================================================
+//
+// Anche se l'Excel contiene QUANTITA',
+// nel catalogo condiviso salviamo sempre 0.
 // =====================================================
 
 async function sostituisciListaProdotti(
@@ -92,49 +84,100 @@ async function sostituisciListaProdotti(
 
     try {
 
-        const { error: erroreEliminazione } =
+        const {
+            error: erroreEliminazione
+        } =
             await supabase
                 .from("lista_prodotti")
                 .delete()
                 .neq("id", 0);
 
+
         if (erroreEliminazione) {
-            callback(erroreEliminazione);
+
+            callback(
+                erroreEliminazione
+            );
+
             return;
+
         }
 
 
-        if (!prodotti || prodotti.length === 0) {
+        if (
+            !prodotti ||
+            prodotti.length === 0
+        ) {
+
             callback(null);
+
             return;
+
         }
 
 
-        const righe =
-            prodotti.map(prodotto => ({
-                codice:
-                    String(prodotto.codice || "").trim(),
+        const prodottiUnici = new Map();
+
+for (const prodotto of prodotti) {
+
+    const codice =
+        String(
+            prodotto.codice || ""
+        )
+        .trim()
+        .toUpperCase();
+
+    if (!codice) {
+        continue;
+    }
+
+    if (!prodottiUnici.has(codice)) {
+
+        prodottiUnici.set(
+            codice,
+            {
+
+                codice,
 
                 descrizione:
-                    String(prodotto.descrizione || "").trim(),
+                    String(
+                        prodotto.descrizione || ""
+                    ).trim(),
 
                 unita:
-                    String(prodotto.unita || "").trim(),
+                    String(
+                        prodotto.unita || ""
+                    ).trim(),
 
-                quantita:
-                    Number(prodotto.quantita) || 0
-            }));
+                quantita: 0
+
+            }
+        );
+
+    }
+
+}
+
+const righe =
+    Array.from(
+        prodottiUnici.values()
+    );
 
 
-        const { error } =
+        const {
+            error
+        } =
             await supabase
                 .from("lista_prodotti")
                 .insert(righe);
 
 
         if (error) {
+
             callback(error);
+
             return;
+
         }
 
 
@@ -152,6 +195,11 @@ async function sostituisciListaProdotti(
 // =====================================================
 // INSERISCE UN PRODOTTO
 // =====================================================
+//
+// Manteniamo quantita nella firma della funzione
+// solo per non rompere eventuali chiamate esistenti.
+// Nel database salviamo comunque sempre 0.
+// =====================================================
 
 function inserisciProdotto(
     codice,
@@ -165,10 +213,17 @@ function inserisciProdotto(
         .from("lista_prodotti")
         .insert({
 
-            codice: codice,
-            descrizione: descrizione,
-            unita: unita || "",
-            quantita: quantita || 0
+            codice:
+                codice,
+
+            descrizione:
+                descrizione,
+
+            unita:
+                unita || "",
+
+            // La quantità non appartiene al catalogo globale
+            quantita: 0
 
         })
         .select("id")
@@ -177,17 +232,30 @@ function inserisciProdotto(
         .then(({ data, error }) => {
 
             if (error) {
-                callback(error, null);
+
+                callback(
+                    error,
+                    null
+                );
+
                 return;
+
             }
 
-            callback(null, data.id);
+
+            callback(
+                null,
+                data.id
+            );
 
         })
 
         .catch((err) => {
 
-            callback(err, null);
+            callback(
+                err,
+                null
+            );
 
         });
 
@@ -207,16 +275,26 @@ function modificaCodiceProdotto(
     supabase
         .from("lista_prodotti")
         .update({
-            codice: nuovoCodice
+
+            codice:
+                nuovoCodice
+
         })
-        .eq("id", id)
+        .eq(
+            "id",
+            id
+        )
 
         .then(({ error }) => {
 
             if (error) {
+
                 callback(error);
+
                 return;
+
             }
+
 
             callback(null);
 
@@ -234,6 +312,9 @@ function modificaCodiceProdotto(
 // =====================================================
 // MODIFICA PRODOTTO COMPLETO
 // =====================================================
+//
+// Anche qui la quantità non viene più modificata.
+// =====================================================
 
 function modificaProdotto(
     id,
@@ -248,20 +329,31 @@ function modificaProdotto(
         .from("lista_prodotti")
         .update({
 
-            codice: codice,
-            descrizione: descrizione,
-            unita: unita || "",
-            quantita: quantita || 0
+            codice:
+                codice,
+
+            descrizione:
+                descrizione,
+
+            unita:
+                unita || ""
 
         })
-        .eq("id", id)
+        .eq(
+            "id",
+            id
+        )
 
         .then(({ error }) => {
 
             if (error) {
+
                 callback(error);
+
                 return;
+
             }
+
 
             callback(null);
 
@@ -288,14 +380,21 @@ function eliminaProdotto(
     supabase
         .from("lista_prodotti")
         .delete()
-        .eq("id", id)
+        .eq(
+            "id",
+            id
+        )
 
         .then(({ error }) => {
 
             if (error) {
+
                 callback(error);
+
                 return;
+
             }
+
 
             callback(null);
 
@@ -317,10 +416,15 @@ function eliminaProdotto(
 module.exports = {
 
     getListaProdotti,
+
     sostituisciListaProdotti,
+
     inserisciProdotto,
+
     modificaCodiceProdotto,
+
     modificaProdotto,
+
     eliminaProdotto
 
 };
