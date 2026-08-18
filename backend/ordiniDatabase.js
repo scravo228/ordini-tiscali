@@ -292,55 +292,79 @@ function modificaQuantitaOrdine(
 
 
             // -------------------------------------------------
-            // PRODOTTO NON PRESENTE
-            // LO INSERIAMO
-            // -------------------------------------------------
+// PRODOTTO NON PRESENTE
+// RECUPERA DESCRIZIONE DALLA LISTA PRODOTTI
+// -------------------------------------------------
 
-            const risultato =
-                await supabase
-                    .from("dettagli_ordine")
-                    .insert({
-
-                        ordineId:
-                            ordineId,
-
-                        codice:
-                            codice,
-
-                        descrizione:
-                            "",
-
-                        quantita:
-                            quantita
-
-                    })
-                    .select("id")
-                    .single();
+const risultatoLista =
+    await supabase
+        .from("lista_prodotti")
+        .select("descrizione")
+        .eq("codice", codice)
+        .maybeSingle();
 
 
-            if (risultato.error) {
+if (risultatoLista.error) {
 
-                callback(
-                    risultato.error
-                );
+    callback(
+        risultatoLista.error
+    );
 
-                return;
+    return;
 
-            }
+}
 
 
-            console.log(
-                "PRODOTTO INSERITO NELL'ORDINE:",
+const descrizioneProdotto =
+    risultatoLista.data?.descrizione || "";
+
+
+const risultato =
+    await supabase
+        .from("dettagli_ordine")
+        .insert({
+
+            ordineId:
+                ordineId,
+
+            codice:
                 codice,
-                "quantità:",
+
+            descrizione:
+                descrizioneProdotto,
+
+            quantita:
                 quantita
-            );
+
+        })
+        .select("id")
+        .single();
 
 
-            callback(
-                null,
-                risultato.data.id
-            );
+if (risultato.error) {
+
+    callback(
+        risultato.error
+    );
+
+    return;
+
+}
+
+
+console.log(
+    "PRODOTTO INSERITO NELL'ORDINE:",
+    codice,
+    descrizioneProdotto,
+    "quantità:",
+    quantita
+);
+
+
+callback(
+    null,
+    risultato.data.id
+);
 
         })
 
@@ -358,15 +382,27 @@ function modificaCodiceProdottoOrdine(
     callback
 ) {
 
+    console.log(
+        "MODIFICA CODICE ORDINE:",
+        ordineId,
+        vecchioCodice,
+        "→",
+        nuovoCodice
+    );
+
+
+    // =====================================================
+    // 1. CERCA PRIMA LA RIGA CORRETTA
+    // =====================================================
+
     supabase
         .from("dettagli_ordine")
-        .update({
-            codice: nuovoCodice
-        })
+        .select("id, codice, descrizione, quantita")
         .eq("ordineId", ordineId)
         .eq("codice", vecchioCodice)
+        .limit(1)
 
-        .then(({ error }) => {
+        .then(async ({ data, error }) => {
 
             if (error) {
 
@@ -375,7 +411,97 @@ function modificaCodiceProdottoOrdine(
 
             }
 
-            callback(null);
+
+            // =================================================
+            // NESSUNA RIGA TROVATA
+            // =================================================
+
+            if (
+                !data ||
+                data.length === 0
+            ) {
+
+                console.log(
+                    "NESSUN PRODOTTO TROVATO NELL'ORDINE:",
+                    ordineId,
+                    vecchioCodice
+                );
+
+                callback(
+                    null,
+                    {
+                        modificati: 0,
+                        trovato: false
+                    }
+                );
+
+                return;
+
+            }
+
+
+            const riga =
+                data[0];
+
+
+            console.log(
+                "RIGA ORDINE TROVATA:",
+                riga
+            );
+
+
+            // =================================================
+            // 2. MODIFICA LA RIGA TRAMITE IL SUO ID
+            // =================================================
+
+            const risultato =
+                await supabase
+                    .from("dettagli_ordine")
+                    .update({
+                        codice:
+                            nuovoCodice
+                    })
+                    .eq(
+                        "id",
+                        riga.id
+                    )
+                    .select(
+                        "id, codice, descrizione, quantita"
+                    );
+
+
+            if (risultato.error) {
+
+                callback(
+                    risultato.error
+                );
+
+                return;
+
+            }
+
+
+            console.log(
+                "CODICE ORDINE MODIFICATO:",
+                risultato.data
+            );
+
+
+            callback(
+                null,
+                {
+                    modificati:
+                        risultato.data
+                            ? risultato.data.length
+                            : 0,
+
+                    trovato: true,
+
+                    prodotto:
+                        risultato.data?.[0] ||
+                        null
+                }
+            );
 
         })
 
