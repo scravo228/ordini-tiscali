@@ -926,30 +926,68 @@ function modificaPuntoVendita(
     callback
 ) {
 
+    // Campi che devono essere sempre aggiornati
+    const aggiornamenti = {
+        nome: nome,
+        codice: codice
+    };
+
+
+    // Password account:
+    // viene modificata SOLO se è stato inserito
+    // un nuovo valore non vuoto
+    if (
+        password !== undefined &&
+        password !== null &&
+        String(password).trim() !== ""
+    ) {
+
+        aggiornamenti.password =
+            String(password).trim();
+
+    }
+
+
+    // Username Tiscali:
+    // se vuoto mantiene quello già presente
+    if (
+        tiscaliUsername !== undefined &&
+        tiscaliUsername !== null &&
+        String(tiscaliUsername).trim() !== ""
+    ) {
+
+        aggiornamenti.tiscaliUsername =
+            String(tiscaliUsername).trim();
+
+    }
+
+
+    // Password Tiscali:
+    // se vuota mantiene quella già presente
+    if (
+        tiscaliPassword !== undefined &&
+        tiscaliPassword !== null &&
+        String(tiscaliPassword).trim() !== ""
+    ) {
+
+        aggiornamenti.tiscaliPassword =
+            String(tiscaliPassword).trim();
+
+    }
+
+
     supabase
         .from("punti_vendita")
-        .update({
-
-            nome: nome,
-
-            codice: codice,
-
-            password: password,
-
-            tiscaliUsername:
-                tiscaliUsername || "",
-
-            tiscaliPassword:
-                tiscaliPassword || ""
-
-        })
+        .update(aggiornamenti)
         .eq("id", id)
 
         .then(({ error }) => {
 
             if (error) {
+
                 callback(error);
                 return;
+
             }
 
             callback(null);
@@ -973,26 +1011,72 @@ function aggiornaMioAccount(
     callback
 ) {
 
+    const aggiornamenti = {};
+
+
+    // Password account
+    if (
+        password !== undefined &&
+        password !== null &&
+        String(password).trim() !== ""
+    ) {
+
+        aggiornamenti.password =
+            String(password).trim();
+
+    }
+
+
+    // Username Tiscali
+    if (
+        tiscaliUsername !== undefined &&
+        tiscaliUsername !== null &&
+        String(tiscaliUsername).trim() !== ""
+    ) {
+
+        aggiornamenti.tiscaliUsername =
+            String(tiscaliUsername).trim();
+
+    }
+
+
+    // Password Tiscali
+    if (
+        tiscaliPassword !== undefined &&
+        tiscaliPassword !== null &&
+        String(tiscaliPassword).trim() !== ""
+    ) {
+
+        aggiornamenti.tiscaliPassword =
+            String(tiscaliPassword).trim();
+
+    }
+
+
+    // Se tutti i campi sono vuoti,
+    // non facciamo nessun UPDATE
+    if (
+        Object.keys(aggiornamenti).length === 0
+    ) {
+
+        callback(null);
+        return;
+
+    }
+
+
     supabase
         .from("punti_vendita")
-        .update({
-
-            password: password,
-
-            tiscaliUsername:
-                tiscaliUsername || "",
-
-            tiscaliPassword:
-                tiscaliPassword || ""
-
-        })
+        .update(aggiornamenti)
         .eq("id", id)
 
         .then(({ error }) => {
 
             if (error) {
+
                 callback(error);
                 return;
+
             }
 
             callback(null);
