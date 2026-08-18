@@ -15,6 +15,7 @@ const ordiniDatabase = require("./ordiniDatabase");
 
 const puntiVendita = require("./puntiVendita");
 const prodotti = require("./prodotti");
+const listaProdotti = require("./listaProdottiDatabase");
 const listaPuntiVendita = require("./listaPuntiVendita");
 const ordineCorrente = require("./ordineCorrente");
 const ordini = require("./ordini");
@@ -172,9 +173,182 @@ app.get("/punti-vendita", (req, res) => {
 
 app.get("/prodotti", (req, res) => {
 
-    res.json(prodotti);
+    listaProdotti.getListaProdotti((errore, prodottiOnline) => {
+
+        if (errore) {
+
+            console.error(
+                "Errore recupero lista prodotti:",
+                errore
+            );
+
+            return res.status(500).json({
+                successo: false,
+                errore: "Errore recupero lista prodotti"
+            });
+
+        }
+
+        res.json({
+            successo: true,
+            prodotti: prodottiOnline
+        });
+
+    });
 
 });
+
+// =====================================================
+// MODIFICA CODICE PRODOTTO
+// =====================================================
+
+// =====================================================
+// MODIFICA CODICE PRODOTTO
+// CATALOGO + EVENTUALE ORDINE APERTO
+// =====================================================
+
+app.post(
+    "/prodotti/modifica-codice",
+    (req, res) => {
+
+        const {
+            id,
+            nuovoCodice,
+            codicePrecedente,
+            ordineId
+        } = req.body;
+
+
+        if (
+            !id ||
+            !nuovoCodice
+        ) {
+
+            return res.status(400).json({
+
+                successo: false,
+
+                errore:
+                    "ID prodotto o nuovo codice mancanti"
+
+            });
+
+        }
+
+
+        // =============================================
+        // 1. AGGIORNA IL CATALOGO GLOBALE
+        // =============================================
+
+        listaProdotti.modificaCodiceProdotto(
+            id,
+            nuovoCodice,
+            (errore) => {
+
+                if (errore) {
+
+                    console.error(
+                        "Errore modifica codice prodotto:",
+                        errore
+                    );
+
+                    return res.status(500).json({
+
+                        successo: false,
+
+                        fase:
+                            "lista_prodotti",
+
+                        errore:
+                            errore.message
+
+                    });
+
+                }
+
+
+                // =============================================
+                // Se non c'è un ordine aperto,
+                // il lavoro è già finito.
+                // =============================================
+
+                if (
+                    !ordineId ||
+                    !codicePrecedente
+                ) {
+
+                    return res.json({
+
+                        successo: true,
+
+                        ordineAggiornato:
+                            false,
+
+                        messaggio:
+                            "Codice prodotto aggiornato"
+
+                    });
+
+                }
+
+
+                // =============================================
+                // 2. AGGIORNA ANCHE DETTAGLI_ORDINE
+                // =============================================
+
+                ordiniDatabase.modificaCodiceProdottoOrdine(
+                    ordineId,
+                    codicePrecedente,
+                    nuovoCodice,
+                    (erroreOrdine, risultatoOrdine) => {
+
+                        if (erroreOrdine) {
+
+                            console.error(
+                                "Errore modifica codice ordine:",
+                                erroreOrdine
+                            );
+
+                            return res.status(500).json({
+
+                                successo: false,
+
+                                fase:
+                                    "dettagli_ordine",
+
+                                errore:
+                                    erroreOrdine.message
+
+                            });
+
+                        }
+
+
+                        return res.json({
+
+    successo: true,
+
+    ordineAggiornato:
+        risultatoOrdine?.modificati > 0,
+
+    dettaglioOrdine:
+        risultatoOrdine,
+
+    messaggio:
+        risultatoOrdine?.modificati > 0
+            ? "Codice prodotto aggiornato anche nell'ordine"
+            : "Codice lista aggiornato, ma prodotto non trovato nell'ordine"
+
+});
+
+                    }
+                );
+
+            }
+        );
+
+    }
+);
 
 
 app.get("/lista-punto-vendita", (req, res) => {
@@ -745,22 +919,59 @@ app.post(
                     });
 
             console.log(
-                "PRODOTTI CREATI:",
-                dati.length
+    "PRODOTTI CREATI:",
+    dati.length
+);
+
+console.log(
+    "SALVATAGGIO LISTA IN SUPABASE..."
+);
+
+listaProdotti.sostituisciListaProdotti(
+    dati,
+    (erroreSalvataggio) => {
+
+        if (erroreSalvataggio) {
+
+            console.error(
+                "ERRORE SALVATAGGIO LISTA SUPABASE:",
+                erroreSalvataggio
             );
 
-            console.log(
-                "INVIO PRODOTTI AL TELEFONO:",
-                dati.length
-            );
+            return res.status(500).json({
 
-            res.json({
+                successo: false,
 
-                successo: true,
+                errore:
+                    "Errore salvataggio lista prodotti",
 
-                prodotti: dati
+                dettaglio:
+                    erroreSalvataggio.message
 
             });
+
+        }
+
+        console.log(
+            "LISTA SALVATA IN SUPABASE:",
+            dati.length
+        );
+
+        console.log(
+            "INVIO PRODOTTI AL TELEFONO:",
+            dati.length
+        );
+
+        return res.json({
+
+            successo: true,
+
+            prodotti: dati
+
+        });
+
+    }
+);
 
         } catch (errore) {
 
@@ -1615,8 +1826,13 @@ app.post(
             );
 
 
+            // Sessione Tiscali isolata per questo punto vendita/richiesta
+            const sessioneTiscali =
+                tiscali.creaClientTiscali();
+
+
             const login =
-                await tiscali.loginTiscali(
+                await sessioneTiscali.loginTiscali(
                     puntoVendita.tiscaliUsername,
                     puntoVendita.tiscaliPassword
                 );
@@ -1765,8 +1981,13 @@ app.post(
             );
 
 
+            // Sessione Tiscali isolata per questo punto vendita/richiesta
+            const sessioneTiscali =
+                tiscali.creaClientTiscali();
+
+
             const login =
-                await tiscali.loginTiscali(
+                await sessioneTiscali.loginTiscali(
                     puntoVendita.tiscaliUsername,
                     puntoVendita.tiscaliPassword
                 );
@@ -1793,7 +2014,7 @@ app.post(
 
 
             const carrello =
-                await tiscali.leggiCarrelloTiscali();
+                await sessioneTiscali.leggiCarrelloTiscali();
 
 
             console.log(
@@ -2046,8 +2267,14 @@ app.post(
                         );
 
 
+                        // Sessione Tiscali dedicata esclusivamente a questo
+                        // punto vendita per tutta la durata dell'ordine.
+                        const sessioneTiscali =
+                            tiscali.creaClientTiscali();
+
+
                         const login =
-                            await tiscali.loginTiscali(
+                            await sessioneTiscali.loginTiscali(
                                 puntoVendita.tiscaliUsername,
                                 puntoVendita.tiscaliPassword
                             );
@@ -2154,7 +2381,7 @@ for (
 
 
         const ricerca =
-            await tiscali.cercaProdottoTiscali(
+            await sessioneTiscali.cercaProdottoTiscali(
                 codice
             );
 
@@ -2228,7 +2455,7 @@ for (
 
 
         const aggiunta =
-            await tiscali.aggiungiAlCarrelloTiscali(
+            await sessioneTiscali.aggiungiAlCarrelloTiscali(
                 ricerca.productId,
                 quantita
             );
@@ -3039,7 +3266,7 @@ app.get(
                     successo: true,
 
                     puntoVenditaId:
-                        punto.Id,
+                        punto.id,
 
                     nome:
                         punto.nome,
