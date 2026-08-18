@@ -202,53 +202,148 @@ app.get("/prodotti", (req, res) => {
 // MODIFICA CODICE PRODOTTO
 // =====================================================
 
-app.post("/prodotti/modifica-codice", (req, res) => {
+// =====================================================
+// MODIFICA CODICE PRODOTTO
+// CATALOGO + EVENTUALE ORDINE APERTO
+// =====================================================
 
-    const {
-        id,
-        nuovoCodice
-    } = req.body;
+app.post(
+    "/prodotti/modifica-codice",
+    (req, res) => {
 
-
-    if (!id || !nuovoCodice) {
-
-        return res.status(400).json({
-            successo: false,
-            errore: "ID prodotto o nuovo codice mancanti"
-        });
-
-    }
-
-
-    listaProdotti.modificaCodiceProdotto(
-        id,
-        nuovoCodice,
-        (errore) => {
-
-            if (errore) {
-
-                console.error(
-                    "Errore modifica codice prodotto:",
-                    errore
-                );
-
-                return res.status(500).json({
-                    successo: false,
-                    errore: errore.message
-                });
-
-            }
+        const {
+            id,
+            nuovoCodice,
+            codicePrecedente,
+            ordineId
+        } = req.body;
 
 
-            res.json({
-                successo: true,
-                messaggio: "Codice prodotto aggiornato"
+        if (
+            !id ||
+            !nuovoCodice
+        ) {
+
+            return res.status(400).json({
+
+                successo: false,
+
+                errore:
+                    "ID prodotto o nuovo codice mancanti"
+
             });
 
         }
-    );
 
-});
+
+        // =============================================
+        // 1. AGGIORNA IL CATALOGO GLOBALE
+        // =============================================
+
+        listaProdotti.modificaCodiceProdotto(
+            id,
+            nuovoCodice,
+            (errore) => {
+
+                if (errore) {
+
+                    console.error(
+                        "Errore modifica codice prodotto:",
+                        errore
+                    );
+
+                    return res.status(500).json({
+
+                        successo: false,
+
+                        fase:
+                            "lista_prodotti",
+
+                        errore:
+                            errore.message
+
+                    });
+
+                }
+
+
+                // =============================================
+                // Se non c'è un ordine aperto,
+                // il lavoro è già finito.
+                // =============================================
+
+                if (
+                    !ordineId ||
+                    !codicePrecedente
+                ) {
+
+                    return res.json({
+
+                        successo: true,
+
+                        ordineAggiornato:
+                            false,
+
+                        messaggio:
+                            "Codice prodotto aggiornato"
+
+                    });
+
+                }
+
+
+                // =============================================
+                // 2. AGGIORNA ANCHE DETTAGLI_ORDINE
+                // =============================================
+
+                ordiniDatabase.modificaCodiceProdottoOrdine(
+                    ordineId,
+                    codicePrecedente,
+                    nuovoCodice,
+                    (erroreOrdine) => {
+
+                        if (erroreOrdine) {
+
+                            console.error(
+                                "Errore modifica codice ordine:",
+                                erroreOrdine
+                            );
+
+                            return res.status(500).json({
+
+                                successo: false,
+
+                                fase:
+                                    "dettagli_ordine",
+
+                                errore:
+                                    erroreOrdine.message
+
+                            });
+
+                        }
+
+
+                        return res.json({
+
+                            successo: true,
+
+                            ordineAggiornato:
+                                true,
+
+                            messaggio:
+                                "Codice prodotto aggiornato"
+
+                        });
+
+                    }
+                );
+
+            }
+        );
+
+    }
+);
 
 
 app.get("/lista-punto-vendita", (req, res) => {

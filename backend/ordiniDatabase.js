@@ -347,6 +347,41 @@ function modificaQuantitaOrdine(
         .catch(callback);
 
 }
+// =====================================================
+// MODIFICA CODICE PRODOTTO NELL'ORDINE APERTO
+// =====================================================
+
+function modificaCodiceProdottoOrdine(
+    ordineId,
+    vecchioCodice,
+    nuovoCodice,
+    callback
+) {
+
+    supabase
+        .from("dettagli_ordine")
+        .update({
+            codice: nuovoCodice
+        })
+        .eq("ordineId", ordineId)
+        .eq("codice", vecchioCodice)
+
+        .then(({ error }) => {
+
+            if (error) {
+
+                callback(error);
+                return;
+
+            }
+
+            callback(null);
+
+        })
+
+        .catch(callback);
+
+}
 
 
 // =====================================================
@@ -1210,5 +1245,7 @@ module.exports = {
     verificaLoginAmministratore,
 
     getAmministratoreById,
+
+        modificaCodiceProdottoOrdine,
 
 };
