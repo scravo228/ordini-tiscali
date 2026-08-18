@@ -1726,8 +1726,13 @@ app.post(
             );
 
 
+            // Sessione Tiscali isolata per questo punto vendita/richiesta
+            const sessioneTiscali =
+                tiscali.creaClientTiscali();
+
+
             const login =
-                await tiscali.loginTiscali(
+                await sessioneTiscali.loginTiscali(
                     puntoVendita.tiscaliUsername,
                     puntoVendita.tiscaliPassword
                 );
@@ -1876,8 +1881,13 @@ app.post(
             );
 
 
+            // Sessione Tiscali isolata per questo punto vendita/richiesta
+            const sessioneTiscali =
+                tiscali.creaClientTiscali();
+
+
             const login =
-                await tiscali.loginTiscali(
+                await sessioneTiscali.loginTiscali(
                     puntoVendita.tiscaliUsername,
                     puntoVendita.tiscaliPassword
                 );
@@ -1904,7 +1914,7 @@ app.post(
 
 
             const carrello =
-                await tiscali.leggiCarrelloTiscali();
+                await sessioneTiscali.leggiCarrelloTiscali();
 
 
             console.log(
@@ -2157,8 +2167,14 @@ app.post(
                         );
 
 
+                        // Sessione Tiscali dedicata esclusivamente a questo
+                        // punto vendita per tutta la durata dell'ordine.
+                        const sessioneTiscali =
+                            tiscali.creaClientTiscali();
+
+
                         const login =
-                            await tiscali.loginTiscali(
+                            await sessioneTiscali.loginTiscali(
                                 puntoVendita.tiscaliUsername,
                                 puntoVendita.tiscaliPassword
                             );
@@ -2265,7 +2281,7 @@ for (
 
 
         const ricerca =
-            await tiscali.cercaProdottoTiscali(
+            await sessioneTiscali.cercaProdottoTiscali(
                 codice
             );
 
@@ -2339,7 +2355,7 @@ for (
 
 
         const aggiunta =
-            await tiscali.aggiungiAlCarrelloTiscali(
+            await sessioneTiscali.aggiungiAlCarrelloTiscali(
                 ricerca.productId,
                 quantita
             );

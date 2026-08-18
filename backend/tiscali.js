@@ -3,6 +3,8 @@ const axios = require("axios");
 const { CookieJar } = require("tough-cookie");
 const { wrapper } = require("axios-cookiejar-support");
 
+function creaClientTiscali() {
+
 let jar = null;
 let tiscali = null;
 
@@ -2513,21 +2515,30 @@ async function trovaProdottoNelCarrello(productId) {
 
     }
 }
-module.exports = {
+return {
     testaTiscali,
     leggiPaginaLogin,
     loginTiscali,
     verificaSessioneTiscali,
     cercaProdottoTiscali,
-aggiungiAlCarrelloTiscali,
-verificaCarrelloTiscali,
-analizzaEliminazioneCarrelloTiscali,
-leggiCarrelloTiscali,
-aggiornaMiniCartTiscali,
-rimuoviProdottoCarrelloTiscali,
-contaArticoliCarrelloTiscali,
-debugCookieTiscali,
-trovaProdottoNelCarrello,
-svuotaCarrelloTiscali
+    aggiungiAlCarrelloTiscali,
+    verificaCarrelloTiscali,
+    analizzaEliminazioneCarrelloTiscali,
+    leggiCarrelloTiscali,
+    aggiornaMiniCartTiscali,
+    rimuoviProdottoCarrelloTiscali,
+    contaArticoliCarrelloTiscali,
+    debugCookieTiscali,
+    trovaProdottoNelCarrello,
+    svuotaCarrelloTiscali
+};
 
+}
+
+// Sessione predefinita: mantiene compatibilità con gli endpoint esistenti.
+const sessionePredefinita = creaClientTiscali();
+
+module.exports = {
+    ...sessionePredefinita,
+    creaClientTiscali
 };
