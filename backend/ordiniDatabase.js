@@ -1322,6 +1322,93 @@ function getAmministratoreById(
 
 }
 
+
+// =====================================================
+// RESOCONTI INVII TISCALI
+// =====================================================
+
+function salvaResocontoInvio(
+    puntoVenditaId,
+    ordineId,
+    successo,
+    prodottiInviati,
+    prodottiAggiunti,
+    prodottiConErrore,
+    prodottiNonTrovati,
+    risultati,
+    callback = () => {}
+) {
+
+    supabase
+        .from("resoconti_invii")
+        .insert({
+            punto_vendita_id: puntoVenditaId,
+            ordine_id: ordineId,
+            successo: successo === true,
+            prodotti_inviati: Number(prodottiInviati) || 0,
+            prodotti_aggiunti: Number(prodottiAggiunti) || 0,
+            prodotti_con_errore: Number(prodottiConErrore) || 0,
+            prodotti_non_trovati: Number(prodottiNonTrovati) || 0,
+            risultati: Array.isArray(risultati) ? risultati : []
+        })
+        .select("id")
+        .single()
+        .then(({ data, error }) => {
+
+            if (error) {
+                callback(error);
+                return;
+            }
+
+            callback(null, data?.id || null);
+
+        })
+        .catch(callback);
+
+}
+
+
+function getUltimoResocontoInvio(
+    puntoVenditaId,
+    callback
+) {
+
+    supabase
+        .from("resoconti_invii")
+        .select(`
+            id,
+            punto_vendita_id,
+            ordine_id,
+            successo,
+            prodotti_inviati,
+            prodotti_aggiunti,
+            prodotti_con_errore,
+            prodotti_non_trovati,
+            risultati,
+            creato_il
+        `)
+        .eq("punto_vendita_id", puntoVenditaId)
+        .order("creato_il", {
+            ascending: false
+        })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data, error }) => {
+
+            if (error) {
+                callback(error, null);
+                return;
+            }
+
+            callback(null, data || null);
+
+        })
+        .catch((err) => {
+            callback(err, null);
+        });
+
+}
+
 // =====================================================
 // EXPORT
 // =====================================================
@@ -1372,6 +1459,10 @@ module.exports = {
 
     getAmministratoreById,
 
-        modificaCodiceProdottoOrdine,
+    modificaCodiceProdottoOrdine,
+
+    salvaResocontoInvio,
+
+    getUltimoResocontoInvio,
 
 };

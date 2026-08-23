@@ -300,7 +300,7 @@ app.post(
                     ordineId,
                     codicePrecedente,
                     nuovoCodice,
-                    (erroreOrdine) => {
+                    (erroreOrdine, risultatoOrdine) => {
 
                         if (erroreOrdine) {
 
@@ -326,15 +326,20 @@ app.post(
 
                         return res.json({
 
-                            successo: true,
+    successo: true,
 
-                            ordineAggiornato:
-                                true,
+    ordineAggiornato:
+        risultatoOrdine?.modificati > 0,
 
-                            messaggio:
-                                "Codice prodotto aggiornato"
+    dettaglioOrdine:
+        risultatoOrdine,
 
-                        });
+    messaggio:
+        risultatoOrdine?.modificati > 0
+            ? "Codice prodotto aggiornato anche nell'ordine"
+            : "Codice lista aggiornato, ma prodotto non trovato nell'ordine"
+
+});
 
                     }
                 );
@@ -534,6 +539,56 @@ app.post("/ordine/azzera", (req, res) => {
     }
 
 });
+
+
+// =====================================================
+// ULTIMO RESOCONTO INVIO TISCALI PER PUNTO VENDITA
+// =====================================================
+
+app.get(
+    "/ordine/ultimo-resoconto/:puntoVenditaId",
+    (req, res) => {
+
+        const puntoVenditaId =
+            Number(req.params.puntoVenditaId);
+
+        if (!puntoVenditaId) {
+
+            return res.status(400).json({
+                successo: false,
+                errore: "Punto vendita mancante o non valido"
+            });
+
+        }
+
+        ordiniDatabase.getUltimoResocontoInvio(
+            puntoVenditaId,
+            (errore, resoconto) => {
+
+                if (errore) {
+
+                    console.error(
+                        "ERRORE RECUPERO ULTIMO RESOCONTO:",
+                        errore
+                    );
+
+                    return res.status(500).json({
+                        successo: false,
+                        errore: errore.message
+                    });
+
+                }
+
+                return res.json({
+                    successo: true,
+                    resoconto: resoconto || null
+                });
+
+            }
+        );
+
+    }
+);
 
 
 // =====================================================
@@ -2671,7 +2726,63 @@ if (
 
 
                         // -------------------------------------------------
-                        // 6. RISPOSTA FINALE
+                        // 6. SALVA RESOCONTO SU SUPABASE
+                        // -------------------------------------------------
+
+                        try {
+
+                            await new Promise(
+                                (resolve) => {
+
+                                    ordiniDatabase.salvaResocontoInvio(
+                                        ordine.puntoVenditaId,
+                                        ordine.ordineId,
+                                        ordineCompletato,
+                                        prodottiOrdine.length,
+                                        risultati.filter(
+                                            p => p.aggiunto
+                                        ).length,
+                                        errori.length,
+                                        prodottiNonTrovati.length,
+                                        risultati,
+                                        (erroreResoconto, resocontoId) => {
+
+                                            if (erroreResoconto) {
+
+                                                console.error(
+                                                    "ERRORE SALVATAGGIO RESOCONTO INVIO:",
+                                                    erroreResoconto
+                                                );
+
+                                            } else {
+
+                                                console.log(
+                                                    "RESOCONTO INVIO SALVATO:",
+                                                    resocontoId
+                                                );
+
+                                            }
+
+                                            resolve();
+
+                                        }
+                                    );
+
+                                }
+                            );
+
+                        } catch (erroreResoconto) {
+
+                            console.error(
+                                "ERRORE IMPREVISTO SALVATAGGIO RESOCONTO:",
+                                erroreResoconto
+                            );
+
+                        }
+
+
+                        // -------------------------------------------------
+                        // 7. RISPOSTA FINALE
                         // -------------------------------------------------
 
                         return res.json({
