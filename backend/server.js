@@ -34,6 +34,11 @@ const PORT = process.env.PORT || 3000;
 
 app.get("/ping", (req, res) => {
 
+    res.setHeader(
+        "Access-Control-Allow-Origin",
+        "https://late-leaf-4c6a.scravoscra.workers.dev"
+    );
+
     res.json({
         successo: true,
         messaggio: "Server attivo"
