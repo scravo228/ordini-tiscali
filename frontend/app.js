@@ -2293,6 +2293,27 @@ window.onload =
             "Avvio Ordini Tiscali..."
         );
 
+        // =====================================================
+// RISVEGLIO RENDER
+// Un solo ping all'apertura dell'app
+// =====================================================
+
+fetch(`${API_URL}/ping`)
+    .then(() => {
+
+        console.log(
+            "PING RENDER OK"
+        );
+
+    })
+    .catch(() => {
+
+        console.log(
+            "PING RENDER: server in risveglio"
+        );
+
+    });
+
 
         const utente =
             localStorage.getItem(
