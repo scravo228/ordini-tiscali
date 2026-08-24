@@ -29,38 +29,17 @@ const PORT = process.env.PORT || 3000;
 
 
 // =====================================================
-// AUTO-PING RENDER
+// PING / RISVEGLIO SERVER
 // =====================================================
 
-if (process.env.NODE_ENV === "production") {
+app.get("/ping", (req, res) => {
 
-    const autoPingUrl =
-        "https://ordini-tiscali.onrender.com/";
+    res.json({
+        successo: true,
+        messaggio: "Server attivo"
+    });
 
-    setInterval(async () => {
-
-        try {
-
-            const risposta =
-                await fetch(autoPingUrl);
-
-            console.log(
-                "AUTO-PING RENDER:",
-                risposta.status
-            );
-
-        } catch (errore) {
-
-            console.log(
-                "ERRORE AUTO-PING:",
-                errore.message
-            );
-
-        }
-
-    }, 10 * 60 * 1000);
-
-}
+});
 
 
 // =====================================================
