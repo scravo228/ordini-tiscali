@@ -25,6 +25,35 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 
+// =====================================================
+// AUTO-PING RENDER
+// =====================================================
+
+if (process.env.NODE_ENV === "production") {
+
+    const autoPingUrl =
+        "https://ordini-tiscali.onrender.com/ping";
+
+    setInterval(async () => {
+
+        try {
+
+            await fetch(autoPingUrl);
+
+        } catch (errore) {
+
+            console.log(
+                "ERRORE AUTO-PING RENDER:",
+                errore.message
+            );
+
+        }
+
+    }, 10 * 60 * 1000);
+
+}
+
+
 
 
 
@@ -566,63 +595,6 @@ app.get(
                 return res.json({
                     successo: true,
                     resoconto: resoconto || null
-                });
-
-            }
-        );
-
-    }
-);
-
-
-// =====================================================
-// ESITO INVIO PER ORDINE SPECIFICO
-// =====================================================
-
-app.get(
-    "/ordine/esito-invio/:ordineId",
-    (req, res) => {
-
-        const ordineId =
-            Number(req.params.ordineId);
-
-        if (!ordineId) {
-
-            return res.status(400).json({
-                successo: false,
-                errore: "Ordine mancante o non valido"
-            });
-
-        }
-
-        ordiniDatabase.getEsitoInvioByOrdineId(
-            ordineId,
-            (errore, esito) => {
-
-                if (errore) {
-
-                    console.error(
-                        "ERRORE RECUPERO ESITO INVIO:",
-                        errore
-                    );
-
-                    return res.status(500).json({
-                        successo: false,
-                        errore: errore.message
-                    });
-
-                }
-
-                return res.json({
-                    successo: true,
-                    ordineId: ordineId,
-                    stato:
-                        esito?.stato ||
-                        "NON_VERIFICABILE",
-                    statoOrdine:
-                        esito?.statoOrdine || null,
-                    resoconto:
-                        esito?.resoconto || null
                 });
 
             }
@@ -2419,40 +2391,15 @@ app.post(
                         const risultati = [];
 
 
-                        console.log(
-                            "===== DEBUG ORDINE TISCALI ====="
-                        );
-
-                        console.dir(
-                            {
-                                ordineId,
-                                puntoVenditaId:
-                                    ordine.puntoVenditaId,
-                                totaleRighe:
-                                    prodottiOrdine.length,
-                                prodottiOrdine
-                            },
-                            { depth: null }
-                        );
-
-                        console.log(
-                            "===== FINE DEBUG ORDINE TISCALI ====="
-                        );
-
-
 // -------------------------------------------------
 // ELABORA TUTTI I PRODOTTI
 // UN ERRORE NON DEVE BLOCCARE IL RESTO DELL'ORDINE
 // -------------------------------------------------
 
-let indiceLoop = 0;
-
 for (
     const prodotto
     of prodottiOrdine
 ) {
-
-    indiceLoop += 1;
 
     const codice =
         String(
@@ -2463,18 +2410,6 @@ for (
         Number(
             prodotto.quantita || 0
         );
-
-
-    console.log(
-        "DEBUG LOOP ORDINE:",
-        {
-            indiceLoop,
-            codice,
-            descrizione:
-                prodotto.descrizione,
-            quantita
-        }
-    );
 
 
     console.log(
@@ -2579,22 +2514,6 @@ for (
         console.log(
             "AGGIUNTA AL CARRELLO:",
             codice
-        );
-
-
-        console.log(
-            "DEBUG PRIMA CART/ADD:",
-            {
-                indiceLoop,
-                codice,
-                descrizione:
-                    prodotto.descrizione,
-                quantita,
-                productId:
-                    ricerca.productId,
-                endpoint:
-                    "/Async/Cart/Add"
-            }
         );
 
 
