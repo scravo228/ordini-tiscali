@@ -97,28 +97,60 @@ function aggiungiProdottoOrdine(
 
     supabase
         .from("dettagli_ordine")
-        .upsert(
-            {
-                ordineId: ordineId,
-                codice: codice,
-                descrizione: descrizione,
-                quantita: quantita
-            },
-            {
-                onConflict: "ordineId,codice"
-            }
-        )
         .select("id")
-        .single()
+        .eq("ordineId", ordineId)
+        .eq("codice", codice)
+        .limit(1)
 
-        .then(({ data, error }) => {
+        .then(async ({ data, error }) => {
 
             if (error) {
                 callback(error);
                 return;
             }
 
-            callback(null, data.id);
+            if (data && data.length > 0) {
+
+                const id =
+                    data[0].id;
+
+                const risultato =
+                    await supabase
+                        .from("dettagli_ordine")
+                        .update({
+                            quantita: quantita,
+                            descrizione: descrizione
+                        })
+                        .eq("id", id);
+
+                if (risultato.error) {
+                    callback(risultato.error);
+                    return;
+                }
+
+                callback(null, id);
+                return;
+
+            }
+
+            const risultato =
+                await supabase
+                    .from("dettagli_ordine")
+                    .insert({
+                        ordineId: ordineId,
+                        codice: codice,
+                        descrizione: descrizione,
+                        quantita: quantita
+                    })
+                    .select("id")
+                    .single();
+
+            if (risultato.error) {
+                callback(risultato.error);
+                return;
+            }
+
+            callback(null, risultato.data.id);
 
         })
 
@@ -203,31 +235,142 @@ function modificaQuantitaOrdine(
     callback
 ) {
 
-    supabase
-        .rpc(
-            "upsert_quantita_dettaglio_ordine",
-            {
-                p_ordine_id: ordineId,
-                p_codice: codice,
-                p_quantita: quantita
-            }
-        )
+    // -------------------------------------------------
+    // CERCA SE IL PRODOTTO ESISTE GIÀ
+    // -------------------------------------------------
 
-        .then(({ data, error }) => {
+    supabase
+        .from("dettagli_ordine")
+        .select("id, descrizione")
+        .eq("ordineId", ordineId)
+        .eq("codice", codice)
+        .limit(1)
+
+        .then(async ({ data, error }) => {
 
             if (error) {
                 callback(error);
                 return;
             }
 
-            callback(null, data);
+
+            // -------------------------------------------------
+            // PRODOTTO GIÀ PRESENTE
+            // -------------------------------------------------
+
+            if (
+                data &&
+                data.length > 0
+            ) {
+
+                const risultato =
+                    await supabase
+                        .from("dettagli_ordine")
+                        .update({
+                            quantita: quantita
+                        })
+                        .eq("id", data[0].id);
+
+                if (risultato.error) {
+
+                    callback(
+                        risultato.error
+                    );
+
+                    return;
+
+                }
+
+                callback(
+                    null,
+                    1
+                );
+
+                return;
+
+            }
+
+
+            // -------------------------------------------------
+// PRODOTTO NON PRESENTE
+// RECUPERA DESCRIZIONE DALLA LISTA PRODOTTI
+// -------------------------------------------------
+
+const risultatoLista =
+    await supabase
+        .from("lista_prodotti")
+        .select("descrizione")
+        .eq("codice", codice)
+        .maybeSingle();
+
+
+if (risultatoLista.error) {
+
+    callback(
+        risultatoLista.error
+    );
+
+    return;
+
+}
+
+
+const descrizioneProdotto =
+    risultatoLista.data?.descrizione || "";
+
+
+const risultato =
+    await supabase
+        .from("dettagli_ordine")
+        .insert({
+
+            ordineId:
+                ordineId,
+
+            codice:
+                codice,
+
+            descrizione:
+                descrizioneProdotto,
+
+            quantita:
+                quantita
+
+        })
+        .select("id")
+        .single();
+
+
+if (risultato.error) {
+
+    callback(
+        risultato.error
+    );
+
+    return;
+
+}
+
+
+console.log(
+    "PRODOTTO INSERITO NELL'ORDINE:",
+    codice,
+    descrizioneProdotto,
+    "quantità:",
+    quantita
+);
+
+
+callback(
+    null,
+    risultato.data.id
+);
 
         })
 
         .catch(callback);
 
 }
-
 // =====================================================
 // MODIFICA CODICE PRODOTTO NELL'ORDINE APERTO
 // =====================================================
@@ -1225,6 +1368,87 @@ function salvaResocontoInvio(
 }
 
 
+function getEsitoInvioByOrdineId(
+    ordineId,
+    callback
+) {
+
+    supabase
+        .from("resoconti_invii")
+        .select(`
+            id,
+            punto_vendita_id,
+            ordine_id,
+            successo,
+            prodotti_inviati,
+            prodotti_aggiunti,
+            prodotti_con_errore,
+            prodotti_non_trovati,
+            risultati,
+            creato_il
+        `)
+        .eq("ordine_id", ordineId)
+        .order("creato_il", {
+            ascending: false
+        })
+        .limit(1)
+        .maybeSingle()
+        .then(async ({ data: resoconto, error }) => {
+
+            if (error) {
+                callback(error, null);
+                return;
+            }
+
+            if (resoconto) {
+
+                callback(null, {
+                    stato: "CONCLUSO",
+                    resoconto: resoconto,
+                    statoOrdine: null
+                });
+
+                return;
+            }
+
+            const risultatoOrdine =
+                await supabase
+                    .from("ordini")
+                    .select("id, stato, puntoVenditaId")
+                    .eq("id", ordineId)
+                    .maybeSingle();
+
+            if (risultatoOrdine.error) {
+                callback(risultatoOrdine.error, null);
+                return;
+            }
+
+            if (risultatoOrdine.data) {
+
+                callback(null, {
+                    stato: "NON_CONCLUSO",
+                    resoconto: null,
+                    statoOrdine:
+                        risultatoOrdine.data.stato || null
+                });
+
+                return;
+            }
+
+            callback(null, {
+                stato: "NON_VERIFICABILE",
+                resoconto: null,
+                statoOrdine: null
+            });
+
+        })
+        .catch((err) => {
+            callback(err, null);
+        });
+
+}
+
+
 function getUltimoResocontoInvio(
     puntoVenditaId,
     callback
@@ -1319,6 +1543,8 @@ module.exports = {
     modificaCodiceProdottoOrdine,
 
     salvaResocontoInvio,
+
+    getEsitoInvioByOrdineId,
 
     getUltimoResocontoInvio,
 
