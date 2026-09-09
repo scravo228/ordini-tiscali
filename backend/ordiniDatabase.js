@@ -97,60 +97,28 @@ function aggiungiProdottoOrdine(
 
     supabase
         .from("dettagli_ordine")
+        .upsert(
+            {
+                ordineId: ordineId,
+                codice: codice,
+                descrizione: descrizione,
+                quantita: quantita
+            },
+            {
+                onConflict: "ordineId,codice"
+            }
+        )
         .select("id")
-        .eq("ordineId", ordineId)
-        .eq("codice", codice)
-        .limit(1)
+        .single()
 
-        .then(async ({ data, error }) => {
+        .then(({ data, error }) => {
 
             if (error) {
                 callback(error);
                 return;
             }
 
-            if (data && data.length > 0) {
-
-                const id =
-                    data[0].id;
-
-                const risultato =
-                    await supabase
-                        .from("dettagli_ordine")
-                        .update({
-                            quantita: quantita,
-                            descrizione: descrizione
-                        })
-                        .eq("id", id);
-
-                if (risultato.error) {
-                    callback(risultato.error);
-                    return;
-                }
-
-                callback(null, id);
-                return;
-
-            }
-
-            const risultato =
-                await supabase
-                    .from("dettagli_ordine")
-                    .insert({
-                        ordineId: ordineId,
-                        codice: codice,
-                        descrizione: descrizione,
-                        quantita: quantita
-                    })
-                    .select("id")
-                    .single();
-
-            if (risultato.error) {
-                callback(risultato.error);
-                return;
-            }
-
-            callback(null, risultato.data.id);
+            callback(null, data.id);
 
         })
 
@@ -235,142 +203,31 @@ function modificaQuantitaOrdine(
     callback
 ) {
 
-    // -------------------------------------------------
-    // CERCA SE IL PRODOTTO ESISTE GIÀ
-    // -------------------------------------------------
-
     supabase
-        .from("dettagli_ordine")
-        .select("id, descrizione")
-        .eq("ordineId", ordineId)
-        .eq("codice", codice)
-        .limit(1)
+        .rpc(
+            "upsert_quantita_dettaglio_ordine",
+            {
+                p_ordine_id: ordineId,
+                p_codice: codice,
+                p_quantita: quantita
+            }
+        )
 
-        .then(async ({ data, error }) => {
+        .then(({ data, error }) => {
 
             if (error) {
                 callback(error);
                 return;
             }
 
-
-            // -------------------------------------------------
-            // PRODOTTO GIÀ PRESENTE
-            // -------------------------------------------------
-
-            if (
-                data &&
-                data.length > 0
-            ) {
-
-                const risultato =
-                    await supabase
-                        .from("dettagli_ordine")
-                        .update({
-                            quantita: quantita
-                        })
-                        .eq("id", data[0].id);
-
-                if (risultato.error) {
-
-                    callback(
-                        risultato.error
-                    );
-
-                    return;
-
-                }
-
-                callback(
-                    null,
-                    1
-                );
-
-                return;
-
-            }
-
-
-            // -------------------------------------------------
-// PRODOTTO NON PRESENTE
-// RECUPERA DESCRIZIONE DALLA LISTA PRODOTTI
-// -------------------------------------------------
-
-const risultatoLista =
-    await supabase
-        .from("lista_prodotti")
-        .select("descrizione")
-        .eq("codice", codice)
-        .maybeSingle();
-
-
-if (risultatoLista.error) {
-
-    callback(
-        risultatoLista.error
-    );
-
-    return;
-
-}
-
-
-const descrizioneProdotto =
-    risultatoLista.data?.descrizione || "";
-
-
-const risultato =
-    await supabase
-        .from("dettagli_ordine")
-        .insert({
-
-            ordineId:
-                ordineId,
-
-            codice:
-                codice,
-
-            descrizione:
-                descrizioneProdotto,
-
-            quantita:
-                quantita
-
-        })
-        .select("id")
-        .single();
-
-
-if (risultato.error) {
-
-    callback(
-        risultato.error
-    );
-
-    return;
-
-}
-
-
-console.log(
-    "PRODOTTO INSERITO NELL'ORDINE:",
-    codice,
-    descrizioneProdotto,
-    "quantità:",
-    quantita
-);
-
-
-callback(
-    null,
-    risultato.data.id
-);
+            callback(null, data);
 
         })
 
         .catch(callback);
 
 }
+
 // =====================================================
 // MODIFICA CODICE PRODOTTO NELL'ORDINE APERTO
 // =====================================================
