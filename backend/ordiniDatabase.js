@@ -97,60 +97,28 @@ function aggiungiProdottoOrdine(
 
     supabase
         .from("dettagli_ordine")
+        .upsert(
+            {
+                ordineId: ordineId,
+                codice: codice,
+                descrizione: descrizione,
+                quantita: quantita
+            },
+            {
+                onConflict: "ordineId,codice"
+            }
+        )
         .select("id")
-        .eq("ordineId", ordineId)
-        .eq("codice", codice)
-        .limit(1)
+        .single()
 
-        .then(async ({ data, error }) => {
+        .then(({ data, error }) => {
 
             if (error) {
                 callback(error);
                 return;
             }
 
-            if (data && data.length > 0) {
-
-                const id =
-                    data[0].id;
-
-                const risultato =
-                    await supabase
-                        .from("dettagli_ordine")
-                        .update({
-                            quantita: quantita,
-                            descrizione: descrizione
-                        })
-                        .eq("id", id);
-
-                if (risultato.error) {
-                    callback(risultato.error);
-                    return;
-                }
-
-                callback(null, id);
-                return;
-
-            }
-
-            const risultato =
-                await supabase
-                    .from("dettagli_ordine")
-                    .insert({
-                        ordineId: ordineId,
-                        codice: codice,
-                        descrizione: descrizione,
-                        quantita: quantita
-                    })
-                    .select("id")
-                    .single();
-
-            if (risultato.error) {
-                callback(risultato.error);
-                return;
-            }
-
-            callback(null, risultato.data.id);
+            callback(null, data.id);
 
         })
 
@@ -292,79 +260,55 @@ function modificaQuantitaOrdine(
 
 
             // -------------------------------------------------
-// PRODOTTO NON PRESENTE
-// RECUPERA DESCRIZIONE DALLA LISTA PRODOTTI
-// -------------------------------------------------
+            // PRODOTTO NON PRESENTE
+            // LO INSERIAMO
+            // -------------------------------------------------
 
-const risultatoLista =
-    await supabase
-        .from("lista_prodotti")
-        .select("descrizione")
-        .eq("codice", codice)
-        .maybeSingle();
+            const risultato =
+                await supabase
+                    .from("dettagli_ordine")
+                    .insert({
+
+                        ordineId:
+                            ordineId,
+
+                        codice:
+                            codice,
+
+                        descrizione:
+                            "",
+
+                        quantita:
+                            quantita
+
+                    })
+                    .select("id")
+                    .single();
 
 
-if (risultatoLista.error) {
+            if (risultato.error) {
 
-    callback(
-        risultatoLista.error
-    );
+                callback(
+                    risultato.error
+                );
 
-    return;
+                return;
 
-}
-
-
-const descrizioneProdotto =
-    risultatoLista.data?.descrizione || "";
+            }
 
 
-const risultato =
-    await supabase
-        .from("dettagli_ordine")
-        .insert({
-
-            ordineId:
-                ordineId,
-
-            codice:
+            console.log(
+                "PRODOTTO INSERITO NELL'ORDINE:",
                 codice,
-
-            descrizione:
-                descrizioneProdotto,
-
-            quantita:
+                "quantità:",
                 quantita
-
-        })
-        .select("id")
-        .single();
+            );
 
 
-if (risultato.error) {
-
-    callback(
-        risultato.error
-    );
-
-    return;
-
-}
-
-
-console.log(
-    "PRODOTTO INSERITO NELL'ORDINE:",
-    codice,
-    descrizioneProdotto,
-    "quantità:",
-    quantita
-);
-
-
-callback(
-    null,
-    risultato.data.id
-);
+            callback(
+                null,
+                risultato.data.id
+            );
 
         })
 
@@ -1322,174 +1266,6 @@ function getAmministratoreById(
 
 }
 
-
-// =====================================================
-// RESOCONTI INVII TISCALI
-// =====================================================
-
-function salvaResocontoInvio(
-    puntoVenditaId,
-    ordineId,
-    successo,
-    prodottiInviati,
-    prodottiAggiunti,
-    prodottiConErrore,
-    prodottiNonTrovati,
-    risultati,
-    callback = () => {}
-) {
-
-    supabase
-        .from("resoconti_invii")
-        .insert({
-            punto_vendita_id: puntoVenditaId,
-            ordine_id: ordineId,
-            successo: successo === true,
-            prodotti_inviati: Number(prodottiInviati) || 0,
-            prodotti_aggiunti: Number(prodottiAggiunti) || 0,
-            prodotti_con_errore: Number(prodottiConErrore) || 0,
-            prodotti_non_trovati: Number(prodottiNonTrovati) || 0,
-            risultati: Array.isArray(risultati) ? risultati : []
-        })
-        .select("id")
-        .single()
-        .then(({ data, error }) => {
-
-            if (error) {
-                callback(error);
-                return;
-            }
-
-            callback(null, data?.id || null);
-
-        })
-        .catch(callback);
-
-}
-
-
-function getEsitoInvioByOrdineId(
-    ordineId,
-    callback
-) {
-
-    supabase
-        .from("resoconti_invii")
-        .select(`
-            id,
-            punto_vendita_id,
-            ordine_id,
-            successo,
-            prodotti_inviati,
-            prodotti_aggiunti,
-            prodotti_con_errore,
-            prodotti_non_trovati,
-            risultati,
-            creato_il
-        `)
-        .eq("ordine_id", ordineId)
-        .order("creato_il", {
-            ascending: false
-        })
-        .limit(1)
-        .maybeSingle()
-        .then(async ({ data: resoconto, error }) => {
-
-            if (error) {
-                callback(error, null);
-                return;
-            }
-
-            if (resoconto) {
-
-                callback(null, {
-                    stato: "CONCLUSO",
-                    resoconto: resoconto,
-                    statoOrdine: null
-                });
-
-                return;
-            }
-
-            const risultatoOrdine =
-                await supabase
-                    .from("ordini")
-                    .select("id, stato, puntoVenditaId")
-                    .eq("id", ordineId)
-                    .maybeSingle();
-
-            if (risultatoOrdine.error) {
-                callback(risultatoOrdine.error, null);
-                return;
-            }
-
-            if (risultatoOrdine.data) {
-
-                callback(null, {
-                    stato: "NON_CONCLUSO",
-                    resoconto: null,
-                    statoOrdine:
-                        risultatoOrdine.data.stato || null
-                });
-
-                return;
-            }
-
-            callback(null, {
-                stato: "NON_VERIFICABILE",
-                resoconto: null,
-                statoOrdine: null
-            });
-
-        })
-        .catch((err) => {
-            callback(err, null);
-        });
-
-}
-
-
-function getUltimoResocontoInvio(
-    puntoVenditaId,
-    callback
-) {
-
-    supabase
-        .from("resoconti_invii")
-        .select(`
-            id,
-            punto_vendita_id,
-            ordine_id,
-            successo,
-            prodotti_inviati,
-            prodotti_aggiunti,
-            prodotti_con_errore,
-            prodotti_non_trovati,
-            risultati,
-            creato_il
-        `)
-        .eq("punto_vendita_id", puntoVenditaId)
-        .order("creato_il", {
-            ascending: false
-        })
-        .limit(1)
-        .maybeSingle()
-        .then(({ data, error }) => {
-
-            if (error) {
-                callback(error, null);
-                return;
-            }
-
-            callback(null, data || null);
-
-        })
-        .catch((err) => {
-            callback(err, null);
-        });
-
-}
-
 // =====================================================
 // EXPORT
 // =====================================================
@@ -1540,12 +1316,6 @@ module.exports = {
 
     getAmministratoreById,
 
-    modificaCodiceProdottoOrdine,
-
-    salvaResocontoInvio,
-
-    getEsitoInvioByOrdineId,
-
-    getUltimoResocontoInvio,
+        modificaCodiceProdottoOrdine,
 
 };
