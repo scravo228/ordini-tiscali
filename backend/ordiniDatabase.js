@@ -1266,6 +1266,49 @@ function getAmministratoreById(
 
 }
 
+
+// =====================================================
+// ULTIMO RESOCONTO INVIO
+// =====================================================
+
+function getUltimoResocontoInvio(
+    puntoVenditaId,
+    callback
+) {
+
+    supabase
+        .from("resoconti_invii")
+        .select("*")
+        .eq(
+            "punto_vendita_id",
+            puntoVenditaId
+        )
+        .order(
+            "creato_il",
+            { ascending: false }
+        )
+        .limit(1)
+        .maybeSingle()
+
+        .then(({ data, error }) => {
+
+            if (error) {
+                callback(error, null);
+                return;
+            }
+
+            callback(null, data);
+
+        })
+
+        .catch((err) => {
+
+            callback(err, null);
+
+        });
+
+}
+
 // =====================================================
 // EXPORT
 // =====================================================
@@ -1315,6 +1358,8 @@ module.exports = {
     verificaLoginAmministratore,
 
     getAmministratoreById,
+
+    getUltimoResocontoInvio,
 
         modificaCodiceProdottoOrdine,
 
