@@ -25,35 +25,6 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 
 
-// =====================================================
-// AUTO-PING RENDER
-// =====================================================
-
-if (process.env.NODE_ENV === "production") {
-
-    const autoPingUrl =
-        "https://ordini-tiscali.onrender.com/ping";
-
-    setInterval(async () => {
-
-        try {
-
-            await fetch(autoPingUrl);
-
-        } catch (errore) {
-
-            console.log(
-                "ERRORE AUTO-PING RENDER:",
-                errore.message
-            );
-
-        }
-
-    }, 10 * 60 * 1000);
-
-}
-
-
 
 
 
@@ -599,6 +570,118 @@ app.get(
 
             }
         );
+
+    }
+);
+
+
+// =====================================================
+// ESITO INVIO ORDINE PER RICONCILIAZIONE
+// =====================================================
+
+app.get(
+    "/ordine/esito-invio/:ordineId",
+    async (req, res) => {
+
+        try {
+
+            const ordineId =
+                Number(req.params.ordineId);
+
+            if (!ordineId) {
+
+                return res.status(400).json({
+                    successo: false,
+                    errore:
+                        "Ordine mancante o non valido"
+                });
+
+            }
+
+            const resoconto =
+                await new Promise(
+                    (resolve, reject) => {
+
+                        ordiniDatabase.getResocontoInvioByOrdineId(
+                            ordineId,
+                            (errore, dati) => {
+
+                                if (errore) {
+                                    reject(errore);
+                                    return;
+                                }
+
+                                resolve(dati);
+
+                            }
+                        );
+
+                    }
+                );
+
+            if (resoconto) {
+
+                return res.json({
+                    successo: true,
+                    stato: "CONCLUSO",
+                    resoconto
+                });
+
+            }
+
+            const ordine =
+                await new Promise(
+                    (resolve, reject) => {
+
+                        ordiniDatabase.getOrdineById(
+                            ordineId,
+                            (errore, dati) => {
+
+                                if (errore) {
+                                    reject(errore);
+                                    return;
+                                }
+
+                                resolve(dati);
+
+                            }
+                        );
+
+                    }
+                );
+
+            if (
+                ordine?.stato === "APERTO"
+            ) {
+
+                return res.json({
+                    successo: true,
+                    stato: "NON_CONCLUSO",
+                    resoconto: null
+                });
+
+            }
+
+            return res.json({
+                successo: true,
+                stato: "NON_VERIFICABILE",
+                resoconto: null
+            });
+
+        } catch (errore) {
+
+            console.error(
+                "ERRORE VERIFICA ESITO INVIO:",
+                errore
+            );
+
+            return res.status(500).json({
+                successo: false,
+                errore:
+                    errore.message
+            });
+
+        }
 
     }
 );
@@ -2695,103 +2778,93 @@ console.log(
 
 
 // -------------------------------------------------
-// 5. CHIUDE ORDINE DB SOLO SE TUTTO OK
+// 5. SALVA RESOCONTO OBBLIGATORIO
 // -------------------------------------------------
 
-if (
-    ordineCompletato
-) {
+                        await new Promise(
+                            (resolve, reject) => {
 
-                            await new Promise(
-                                (resolve) => {
+                                ordiniDatabase.salvaResocontoInvio(
+                                    ordine.puntoVenditaId,
+                                    ordine.ordineId,
+                                    ordineCompletato,
+                                    prodottiOrdine.length,
+                                    risultati.filter(
+                                        p => p.aggiunto
+                                    ).length,
+                                    errori.length,
+                                    prodottiNonTrovati.length,
+                                    risultati,
+                                    (erroreResoconto, resocontoId) => {
 
-                                    ordiniDatabase.chiudiOrdine(
-                                        ordine.ordineId,
-                                        (erroreChiusura) => {
+                                        if (erroreResoconto) {
 
-                                            if (
+                                            console.error(
+                                                "ERRORE SALVATAGGIO RESOCONTO INVIO:",
+                                                erroreResoconto
+                                            );
+
+                                            reject(
+                                                erroreResoconto
+                                            );
+                                            return;
+
+                                        }
+
+                                        console.log(
+                                            "RESOCONTO INVIO SALVATO:",
+                                            resocontoId
+                                        );
+
+                                        resolve();
+
+                                    }
+                                );
+
+                            }
+                        );
+
+
+                        // -------------------------------------------------
+                        // 6. CHIUDE ORDINE LATO APP
+                        // COMPLETO O PARZIALE
+                        // -------------------------------------------------
+
+                        await new Promise(
+                            (resolve, reject) => {
+
+                                ordiniDatabase.chiudiOrdine(
+                                    ordine.ordineId,
+                                    (erroreChiusura) => {
+
+                                        if (
+                                            erroreChiusura
+                                        ) {
+
+                                            console.error(
+                                                "ERRORE CHIUSURA ORDINE:",
                                                 erroreChiusura
-                                            ) {
+                                            );
 
-                                                console.error(
-                                                    "ERRORE CHIUSURA ORDINE:",
-                                                    erroreChiusura
-                                                );
-
-                                            } else {
-
-                                                console.log(
-                                                    "ORDINE CHIUSO CORRETTAMENTE:",
-                                                    ordine.ordineId
-                                                );
-
-                                            }
-
-                                            resolve();
+                                            reject(
+                                                erroreChiusura
+                                            );
+                                            return;
 
                                         }
-                                    );
 
-                                }
-                            );
+                                        console.log(
+                                            "ORDINE CHIUSO CORRETTAMENTE:",
+                                            ordine.ordineId
+                                        );
 
-                        }
+                                        resolve();
 
+                                    }
+                                );
 
-                        // -------------------------------------------------
-                        // 6. SALVA RESOCONTO SU SUPABASE
-                        // -------------------------------------------------
-
-                        try {
-
-                            await new Promise(
-                                (resolve) => {
-
-                                    ordiniDatabase.salvaResocontoInvio(
-                                        ordine.puntoVenditaId,
-                                        ordine.ordineId,
-                                        ordineCompletato,
-                                        prodottiOrdine.length,
-                                        risultati.filter(
-                                            p => p.aggiunto
-                                        ).length,
-                                        errori.length,
-                                        prodottiNonTrovati.length,
-                                        risultati,
-                                        (erroreResoconto, resocontoId) => {
-
-                                            if (erroreResoconto) {
-
-                                                console.error(
-                                                    "ERRORE SALVATAGGIO RESOCONTO INVIO:",
-                                                    erroreResoconto
-                                                );
-
-                                            } else {
-
-                                                console.log(
-                                                    "RESOCONTO INVIO SALVATO:",
-                                                    resocontoId
-                                                );
-
-                                            }
-
-                                            resolve();
-
-                                        }
-                                    );
-
-                                }
-                            );
-
-                        } catch (erroreResoconto) {
-
-                            console.error(
-                                "ERRORE IMPREVISTO SALVATAGGIO RESOCONTO:",
-                                erroreResoconto
-                            );
-
-                        }
+                            }
+                        );
 
 
                         // -------------------------------------------------

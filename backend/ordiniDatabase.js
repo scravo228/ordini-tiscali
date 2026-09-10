@@ -1266,6 +1266,52 @@ function getUltimoResocontoInvio(
 
 }
 
+
+// =====================================================
+// RESOCONTO INVIO PER ORDINE
+// =====================================================
+
+function getResocontoInvioByOrdineId(
+    ordineId,
+    callback
+) {
+
+    supabase
+        .from("resoconti_invii")
+        .select(`
+            id,
+            punto_vendita_id,
+            ordine_id,
+            successo,
+            prodotti_inviati,
+            prodotti_aggiunti,
+            prodotti_con_errore,
+            prodotti_non_trovati,
+            risultati,
+            creato_il
+        `)
+        .eq("ordine_id", ordineId)
+        .order("creato_il", {
+            ascending: false
+        })
+        .limit(1)
+        .maybeSingle()
+        .then(({ data, error }) => {
+
+            if (error) {
+                callback(error, null);
+                return;
+            }
+
+            callback(null, data || null);
+
+        })
+        .catch((err) => {
+            callback(err, null);
+        });
+
+}
+
 // =====================================================
 // EXPORT
 // =====================================================
@@ -1321,5 +1367,7 @@ module.exports = {
     salvaResocontoInvio,
 
     getUltimoResocontoInvio,
+
+    getResocontoInvioByOrdineId,
 
 };
