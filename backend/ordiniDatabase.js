@@ -203,118 +203,31 @@ function modificaQuantitaOrdine(
     callback
 ) {
 
-    // -------------------------------------------------
-    // CERCA SE IL PRODOTTO ESISTE GIÀ
-    // -------------------------------------------------
-
     supabase
-        .from("dettagli_ordine")
-        .select("id, descrizione")
-        .eq("ordineId", ordineId)
-        .eq("codice", codice)
-        .limit(1)
+        .rpc(
+            "upsert_quantita_dettaglio_ordine",
+            {
+                p_ordine_id: ordineId,
+                p_codice: codice,
+                p_quantita: quantita
+            }
+        )
 
-        .then(async ({ data, error }) => {
+        .then(({ data, error }) => {
 
             if (error) {
                 callback(error);
                 return;
             }
 
-
-            // -------------------------------------------------
-            // PRODOTTO GIÀ PRESENTE
-            // -------------------------------------------------
-
-            if (
-                data &&
-                data.length > 0
-            ) {
-
-                const risultato =
-                    await supabase
-                        .from("dettagli_ordine")
-                        .update({
-                            quantita: quantita
-                        })
-                        .eq("id", data[0].id);
-
-                if (risultato.error) {
-
-                    callback(
-                        risultato.error
-                    );
-
-                    return;
-
-                }
-
-                callback(
-                    null,
-                    1
-                );
-
-                return;
-
-            }
-
-
-            // -------------------------------------------------
-            // PRODOTTO NON PRESENTE
-            // LO INSERIAMO
-            // -------------------------------------------------
-
-            const risultato =
-                await supabase
-                    .from("dettagli_ordine")
-                    .insert({
-
-                        ordineId:
-                            ordineId,
-
-                        codice:
-                            codice,
-
-                        descrizione:
-                            "",
-
-                        quantita:
-                            quantita
-
-                    })
-                    .select("id")
-                    .single();
-
-
-            if (risultato.error) {
-
-                callback(
-                    risultato.error
-                );
-
-                return;
-
-            }
-
-
-            console.log(
-                "PRODOTTO INSERITO NELL'ORDINE:",
-                codice,
-                "quantità:",
-                quantita
-            );
-
-
-            callback(
-                null,
-                risultato.data.id
-            );
+            callback(null, data);
 
         })
 
         .catch(callback);
 
 }
+
 // =====================================================
 // MODIFICA CODICE PRODOTTO NELL'ORDINE APERTO
 // =====================================================
@@ -1268,8 +1181,49 @@ function getAmministratoreById(
 
 
 // =====================================================
-// ULTIMO RESOCONTO INVIO
+// RESOCONTI INVII TISCALI
 // =====================================================
+
+function salvaResocontoInvio(
+    puntoVenditaId,
+    ordineId,
+    successo,
+    prodottiInviati,
+    prodottiAggiunti,
+    prodottiConErrore,
+    prodottiNonTrovati,
+    risultati,
+    callback = () => {}
+) {
+
+    supabase
+        .from("resoconti_invii")
+        .insert({
+            punto_vendita_id: puntoVenditaId,
+            ordine_id: ordineId,
+            successo: successo === true,
+            prodotti_inviati: Number(prodottiInviati) || 0,
+            prodotti_aggiunti: Number(prodottiAggiunti) || 0,
+            prodotti_con_errore: Number(prodottiConErrore) || 0,
+            prodotti_non_trovati: Number(prodottiNonTrovati) || 0,
+            risultati: Array.isArray(risultati) ? risultati : []
+        })
+        .select("id")
+        .single()
+        .then(({ data, error }) => {
+
+            if (error) {
+                callback(error);
+                return;
+            }
+
+            callback(null, data?.id || null);
+
+        })
+        .catch(callback);
+
+}
+
 
 function getUltimoResocontoInvio(
     puntoVenditaId,
@@ -1278,18 +1232,24 @@ function getUltimoResocontoInvio(
 
     supabase
         .from("resoconti_invii")
-        .select("*")
-        .eq(
-            "punto_vendita_id",
-            puntoVenditaId
-        )
-        .order(
-            "creato_il",
-            { ascending: false }
-        )
+        .select(`
+            id,
+            punto_vendita_id,
+            ordine_id,
+            successo,
+            prodotti_inviati,
+            prodotti_aggiunti,
+            prodotti_con_errore,
+            prodotti_non_trovati,
+            risultati,
+            creato_il
+        `)
+        .eq("punto_vendita_id", puntoVenditaId)
+        .order("creato_il", {
+            ascending: false
+        })
         .limit(1)
         .maybeSingle()
-
         .then(({ data, error }) => {
 
             if (error) {
@@ -1297,14 +1257,11 @@ function getUltimoResocontoInvio(
                 return;
             }
 
-            callback(null, data);
+            callback(null, data || null);
 
         })
-
         .catch((err) => {
-
             callback(err, null);
-
         });
 
 }
@@ -1359,8 +1316,10 @@ module.exports = {
 
     getAmministratoreById,
 
-    getUltimoResocontoInvio,
+    modificaCodiceProdottoOrdine,
 
-        modificaCodiceProdottoOrdine,
+    salvaResocontoInvio,
+
+    getUltimoResocontoInvio,
 
 };
